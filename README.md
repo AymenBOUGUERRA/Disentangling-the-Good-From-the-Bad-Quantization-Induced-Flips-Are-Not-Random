@@ -97,14 +97,21 @@ If you find this work useful, please cite:
 
 This work builds on the spectral description of quantization introduced in our ICML 2026 paper
 [*Less Precise Can Be More Reliable: A Systematic Evaluation of Quantization's Impact on VLMs Beyond
-Accuracy*](https://arxiv.org/abs/2509.21173), by **Aymen Bouguerra**, Daniel Montoya, Alexandra Gomez-Villa,
+Accuracy*](https://proceedings.mlr.press/v306/bouguerra26a.html) (PMLR 306), by **Aymen Bouguerra**, Daniel Alfonso Montoya Vasquez, Alexandra Gomez-Villa,
 Chokri Mraidha and Fabio Arnez.
 
 ```bibtex
-@inproceedings{bouguerra2026lessprecise,
-  title     = {Less Precise Can Be More Reliable: A Systematic Evaluation of Quantization's Impact on {VLMs} Beyond Accuracy},
-  author    = {Bouguerra, Aymen and Montoya, Daniel and Gomez-Villa, Alexandra and Mraidha, Chokri and Arnez, Fabio},
-  booktitle = {International Conference on Machine Learning (ICML)},
-  year      = {2026}
+@inproceedings{bouguerra26a,
+  title     = {Less Precise Can Be More Reliable: A Systematic Evaluation
+               of Quantization's Impact on {VLMs} Beyond Accuracy},
+  author    = {Bouguerra, Aymen and Montoya Vasquez, Daniel Alfonso and Gomez-Villa, Alexandra
+               and Mraidha, Chokri and Arnez, Fabio},
+  booktitle = {Proceedings of the 43rd International Conference on Machine Learning},
+  pages     = {9363--9391},
+  year      = {2026},
+  volume    = {306},
+  series    = {Proceedings of Machine Learning Research},
+  publisher = {PMLR},
+  url       = {https://proceedings.mlr.press/v306/bouguerra26a.html}
 }
 ```
