@@ -457,9 +457,9 @@
           <div class="stat-note">T3; 0.775 from the quantized model alone (T1)</div>
         </div>
         <div class="stat">
-          <div class="stat-value">+1.96 pp</div>
+          <div class="stat-value">+1.97 pp</div>
           <div class="stat-label">Accuracy gain, quantized model alone</div>
-          <div class="stat-note">T1 on the 50 CLIP cells; +0.97 pp above full precision</div>
+          <div class="stat-note">T1 on the 50 CLIP cells; +0.86 pp above full precision</div>
         </div>
         <div class="stat">
           <div class="stat-value">+3.42 pp</div>
@@ -615,7 +615,7 @@
       <h2>Keep the good flips, repair the bad ones</h2>
     </div>
     <div class="prose">
-      <p>Two heads flag the inputs most likely to be bad flips (a flip, and a bad one); each tier repairs them from its cheapest source. On the 50 CLIP cells (5 backbones × 10 datasets, W8A8 light QAT), T1 gains +1.96 pp with the quantized model alone and ends +0.97 pp above full precision. T3 runs the full-precision model only on the flagged inputs and climbs with that budget.</p>
+      <p>Two heads flag the inputs most likely to be bad flips (a flip, and a bad one); each tier repairs them from its cheapest source. On the 50 CLIP cells (5 backbones × 10 datasets, W8A8 light QAT), T1 gains +1.97 pp with the quantized model alone and ends +0.86 pp above full precision. T3 runs the full-precision model only on the flagged inputs and climbs with that budget.</p>
     </div>
     <div class="table-wrap">
         <table>
@@ -625,9 +625,9 @@
           </thead>
           <tbody>
             <tr class="sub"><td colspan="11">Top-1 accuracy gain (pp)</td></tr>
-            <tr><td>above the quantized model</td><td>+1.96</td><td>+2.02</td><td>+2.10</td><td>+2.41</td><td>+2.73</td><td>+3.03</td><td>+3.12</td><td>+3.59</td><td>+3.63</td><td>+4.63</td></tr>
-            <tr><td>above the base model (FP)</td><td>+0.97</td><td>+1.03</td><td>+1.11</td><td>+1.42</td><td>+1.73</td><td>+2.03</td><td>+2.12</td><td>+2.60</td><td>+2.63</td><td>+3.63</td></tr>
-            <tr><td>Compute overhead (% of <i>M<sub>q</sub></i>)</td><td>0.014</td><td>0.017</td><td>1</td><td>5</td><td>10</td><td>17</td><td>20</td><td>50</td><td>70</td><td>4.6</td></tr>
+            <tr><td>above the quantized model</td><td>+1.97</td><td>+2.03</td><td>+2.11</td><td>+2.44</td><td>+2.77</td><td>+3.10</td><td>+3.19</td><td>+3.70</td><td>+3.74</td><td>+4.83</td></tr>
+            <tr><td>above the base model (FP)</td><td>+0.86</td><td>+0.92</td><td>+1.01</td><td>+1.33</td><td>+1.66</td><td>+1.99</td><td>+2.08</td><td>+2.59</td><td>+2.64</td><td>+3.72</td></tr>
+            <tr><td>Compute overhead (% of <i>M<sub>q</sub></i>)</td><td>0.014</td><td>0.017</td><td>1</td><td>5</td><td>10</td><td>17</td><td>20</td><td>50</td><td>70</td><td>4.8</td></tr>
           </tbody>
         </table>
     </div>

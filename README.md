@@ -45,8 +45,8 @@ The reproduction code is available at
   inputs (T3).
 - 🎯 **Spectral, not confidence:** on the same cells and head, the spectral bank beats softmax confidence on every
   cell of the ablation (0.838 vs 0.626 mean Dis AUC) and the raw quantized features on 10 of 12.
-- 📈 **Accuracy recovered:** on the 50 CLIP cells the T1 gate gains **+1.96 pp** with the quantized model alone and
-  ends **+0.97 pp** above full precision; on production quantizers (GPTQ, SmoothQuant, AWQ, TensorRT Model Optimizer,
+- 📈 **Accuracy recovered:** on the 50 CLIP cells the T1 gate gains **+1.97 pp** with the quantized model alone and
+  ends **+0.86 pp** above full precision; on production quantizers (GPTQ, SmoothQuant, AWQ, TensorRT Model Optimizer,
   bitsandbytes, QAT) T3 ends up to **+3.42 pp** above full precision.
 - ⚡ **Negligible cost:** the T1 / T2 gate adds about **0.014%** of a quantized forward in compute, with no second
   model in memory.
