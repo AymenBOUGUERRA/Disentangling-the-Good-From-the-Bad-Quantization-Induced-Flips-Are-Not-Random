@@ -580,7 +580,7 @@
 
     <div class="prose" style="margin-top: 36px;">
       <h3>Class density caps T1, softly</h3>
-      <p style="color: var(--ink-2); font-size: 0.97rem;">Low-class datasets (EuroSAT, GTSRB, FashionMNIST, SVHN) form a bright band at 0.76–0.98, while ImageNet-1k caps T1 at 0.59–0.62: with 1,000 classes in a fixed feature space, quantized-model-only features can no longer tell which low-rank reconstruction matches which class. A live <i>M<sub>b</sub></i> pass on flagged inputs (T3) lifts ImageNet-1k from 0.60 to 0.79, and tighter precision lifts it too, to 0.829 / 0.847 at W4A4 (ResNet-50 / ViT-B/16). Calibration size is not the bottleneck: Dis AUC is insensitive to the size of the fitting pool from 64 samples upward.</p>
+      <p style="color: var(--ink-2); font-size: 0.97rem;">Low-class datasets (EuroSAT, GTSRB, FashionMNIST, SVHN) form a bright band at 0.76–0.98, while ImageNet-1k caps T1 at 0.59–0.62: with 1,000 classes in a fixed feature space, quantized-model-only features can no longer tell which low-rank reconstruction matches which class. A live <i>M<sub>b</sub></i> pass on flagged inputs (T3) lifts ImageNet-1k from 0.60 to 0.79, and tighter precision lifts it too, to 0.829 / 0.847 at W4A4 (ResNet-50 / ViT-B/16).</p>
     </div>
     <figure class="fig-plot">
       <a class="plate" href="assets/heatmap_t1.svg" target="_blank" rel="noopener noreferrer" style="max-width: 820px;">
