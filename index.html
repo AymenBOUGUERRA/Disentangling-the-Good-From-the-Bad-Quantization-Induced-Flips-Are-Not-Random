@@ -440,35 +440,35 @@
     <figure class="fig-wide">
       <a class="plate" href="assets/teaser.jpg" target="_blank" rel="noopener noreferrer">
         <img src="assets/teaser.jpg" width="2400" height="791"
-             alt="Three panels on pooled CLIP-B/16 W8A8 QAT flips. (A) Densities of the quantized top-1 margin for good flips (6,193) and bad flips (6,697) overlap. (B) Share of flips by the SVD rank at which the quantized prediction emerges: good flips peak at low ranks (median 24), bad flips rise in the high-rank tail (median 48). (C) A confidence score against a spectral score: the two populations form largely separate clouds.">
+             alt="Three panels on pooled CLIP-B/16 W8A8 QAT flips. (A) Densities of the quantized top-1 margin for good and bad flips overlap. (B) Share of flips by the SVD rank at which the quantized prediction emerges: good flips peak at low ranks (median 24), bad flips rise in the high-rank tail (median 48). (C) A confidence score against a spectral score: the two populations form largely separate clouds.">
       </a>
-      <figcaption><b>Quantization flips are not random</b> (pooled CLIP-B/16, W8A8 QAT, 8 datasets, 12,890 flips). <b>(A)</b> The quantized softmax margin used by prior work overlaps for <span class="good">good</span> (IC) and <span class="bad">bad</span> (CI) flips. <b>(B)</b> Along the SVD rank of the quantized model's own feature space, good flips emerge at low ranks and bad flips need the high-rank tail. <b>(C)</b> A confidence score and a spectral score together largely disentangle the two populations.</figcaption>
+      <figcaption><b>Quantization flips are not random</b> (pooled CLIP-B/16, W8A8 QAT, 8 datasets, 13,205 flips). <b>(A)</b> The quantized softmax margin used by prior work overlaps for <span class="good">good</span> (IC) and <span class="bad">bad</span> (CI) flips. <b>(B)</b> Along the SVD rank of the quantized model's own feature space, good flips emerge at low ranks and bad flips need the high-rank tail. <b>(C)</b> A confidence score and a spectral score together largely disentangle the two populations.</figcaption>
     </figure>
 
     <div class="overview-row">
       <div class="tldr">
         <span class="label">TL;DR</span>
-        <p>A quantized model that matches its full-precision baseline in accuracy still changes 3–18% of its predictions. These flips are not rounding noise: <span class="good">good flips</span> (incorrect&nbsp;→&nbsp;correct) and <span class="bad">bad flips</span> (correct&nbsp;→&nbsp;incorrect) live in different parts of the quantized model's SVD spectrum. A post-hoc gate that reads them can keep the good flips and repair the bad ones, recovering accuracy at a cost of microseconds per input.</p>
+        <p>A quantized model that matches its full-precision baseline in accuracy still changes many of its predictions. These flips are not rounding noise: <span class="good">good flips</span> (incorrect&nbsp;→&nbsp;correct) and <span class="bad">bad flips</span> (correct&nbsp;→&nbsp;incorrect) live in different parts of the quantized model's SVD spectrum. A post-hoc gate that reads them can keep the good flips and repair the bad ones, recovering accuracy at a cost of microseconds per input.</p>
       </div>
       <div class="stats">
         <div class="stat">
-          <div class="stat-value">0.870</div>
+          <div class="stat-value">0.881</div>
           <div class="stat-label">Dis AUC on 50 CLIP cells</div>
-          <div class="stat-note">T3; 0.760 from the quantized model alone (T1)</div>
+          <div class="stat-note">T3; 0.775 from the quantized model alone (T1)</div>
         </div>
         <div class="stat">
-          <div class="stat-value">+2.26 pp</div>
-          <div class="stat-label">Above full precision, quantized model alone</div>
-          <div class="stat-note">T1 gate, CLIP-B/16 W8A8 SpinQuant + GPTQ / EuroSAT</div>
+          <div class="stat-value">+1.96 pp</div>
+          <div class="stat-label">Accuracy gain, quantized model alone</div>
+          <div class="stat-note">T1 on the 50 CLIP cells; +0.97 pp above full precision</div>
         </div>
         <div class="stat">
-          <div class="stat-value">+4.83 pp</div>
-          <div class="stat-label">Above full precision after a −4.48 pp drop</div>
-          <div class="stat-note">T3 gate, CLIP-B/16 EuroSAT W6A6</div>
+          <div class="stat-value">+3.42 pp</div>
+          <div class="stat-label">Above full precision after a −2.88 pp drop</div>
+          <div class="stat-note">T3, TensorRT INT8, CLIP-L/14 / GTSRB</div>
         </div>
         <div class="stat">
-          <div class="stat-value">0.03%</div>
-          <div class="stat-label">Gate compute vs a CLIP-B/16 forward</div>
+          <div class="stat-value">0.014%</div>
+          <div class="stat-label">Gate compute vs a quantized forward</div>
           <div class="stat-note">T1 / T2: no second model in memory</div>
         </div>
       </div>
@@ -488,11 +488,11 @@
   <section id="flips">
     <div class="prose sec-head">
       <span class="label">The problem</span>
-      <h2>Matched accuracy still changes 3–18% of predictions</h2>
+      <h2>Matched accuracy still changes many predictions</h2>
     </div>
     <div class="fig-side">
       <div>
-        <p>When a quantized model matches its baseline's top-1 accuracy, the two are treated as equivalent. They are not: at matched accuracy, the quantized model still disagrees with its baseline on 3–18% of inputs. Good and bad flips are roughly symmetric in count, which is exactly why the aggregate accuracy gap looks small or even null.</p>
+        <p>When a quantized model matches its baseline's top-1 accuracy, the two are treated as equivalent. They are not: at matched accuracy, the quantized model still disagrees with its baseline on a share of inputs. Good and bad flips are roughly symmetric in count, which is exactly why the aggregate accuracy gap looks small or even null.</p>
         <p>The quantized model's own confidence does not tell them apart: their densities overlap across the whole confidence range. Without a per-input criterion, a deployed model cannot flag the bad flips that matter, such as a missed pedestrian or a corrupted instruction.</p>
         <p>The spectral account explains the asymmetry. Rounding error concentrates in the high-rank, low-variance directions of the representation, which carry fine within-class cues. A <span class="good">good flip</span> is an input where the baseline followed a misleading high-rank cue that quantization removed; a <span class="bad">bad flip</span> is one whose correct evidence lived in that tail and was crushed by rounding.</p>
       </div>
@@ -529,15 +529,14 @@
             <tr><th>Configuration</th><th class="l">Gate features</th><th class="l">Repair of flagged inputs</th><th><i>M<sub>b</sub></i> forwards / input</th></tr>
           </thead>
           <tbody>
-            <tr><td>T1</td><td class="l"><i>M<sub>q</sub></i> (<i>V<sub>q</sub></i> readouts, <i>p<sub>q</sub></i>)</td><td class="l">second-best class of <i>p<sub>q</sub></i></td><td>0</td></tr>
+            <tr><td>T1</td><td class="l"><i>M<sub>q</sub></i> only (<i>V<sub>q</sub></i> readouts, <i>p<sub>q</sub></i>)</td><td class="l">second-best class of <i>p<sub>q</sub></i></td><td>0</td></tr>
             <tr><td>T2</td><td class="l">T1 + cached <i>V<sub>b</sub></i></td><td class="l">second-best class of <i>p<sub>q</sub></i></td><td>0</td></tr>
-            <tr><td>T1 gate, <i>M<sub>b</sub></i> repair</td><td class="l">T1</td><td class="l"><i>ŷ<sub>b</sub></i></td><td><i>r</i></td></tr>
+            <tr><td>T3</td><td class="l">T1/T2 gate, then live <i>M<sub>b</sub></i> on its top-<i>r</i>%</td><td class="l"><i>ŷ<sub>b</sub></i> (T3 head picks)</td><td><i>r</i></td></tr>
             <tr><td>T3 detection</td><td class="l">T2, then <i>M<sub>b</sub></i> on the top-<i>r</i>%</td><td class="l">—</td><td><i>r</i></td></tr>
-            <tr><td>T3 (<i>M<sub>b</sub></i> features on all inputs)</td><td class="l">T2 + live <i>M<sub>b</sub></i></td><td class="l"><i>ŷ<sub>b</sub></i></td><td>1</td></tr>
           </tbody>
         </table>
       </div>
-      <p class="table-note"><i>r</i>: flag rate. The second-best class of <i>p<sub>q</sub></i> equals the label for about three quarters of bad flips and essentially no good flips, so a flagged input can be repaired without a full-precision pass. The T1 / T2 gate adds 0.032–0.039% of a CLIP-B/16 forward in compute.</p>
+      <p class="table-note"><i>r</i>: flag rate. The second-best class of <i>p<sub>q</sub></i> equals the label for about three quarters of bad flips and essentially no good flips, so a flagged input can be repaired without a full-precision pass. The T1 / T2 gate adds 0.014–0.017% of a quantized forward in compute; T1 uses the quantized model only.</p>
     </div>
   </section>
 
@@ -548,14 +547,14 @@
       <h2>The signal holds across 50 CLIP cells and five more families</h2>
     </div>
     <div class="prose">
-      <p>Dis AUC is the ROC-AUC separating good from bad flips among the flipped inputs. On five CLIP backbones × ten datasets at matched-accuracy W8A8, T3 sits between 0.84 and 0.89 for every backbone, with the strongest cell at B/16 / EuroSAT (0.993). The ordering T1 &lt; T2 ≤ T3 holds on every family tested.</p>
+      <p>Dis AUC is the ROC-AUC separating good from bad flips among the flipped inputs. On five CLIP backbones × ten datasets at matched-accuracy W8A8, T3 sits between 0.87 and 0.89 for every backbone, with the strongest cell at B/16 / EuroSAT (0.993). The ordering T1 &lt; T2 ≤ T3 holds on every family tested.</p>
     </div>
     <figure class="fig-plot fig-wide">
       <a class="plate" href="assets/grid_tiers.svg" target="_blank" rel="noopener noreferrer">
         <img src="assets/grid_tiers.svg" width="991" height="359" loading="lazy" decoding="async"
-             alt="Box plot of disentanglement AUC per CLIP backbone and tier over ten datasets: T1 means from 0.739 to 0.780, T2 slightly above, T3 from 0.844 to 0.887.">
+             alt="Box plot of disentanglement AUC per CLIP backbone and tier over ten datasets: T1 means from 0.762 to 0.785, T2 about equal, T3 from 0.873 to 0.889.">
       </a>
-      <figcaption><b>Disentanglement AUC per CLIP backbone</b> (W8A8 QAT, ten datasets each; upgraded feature bank). Pooled means: T1 0.760, T2 0.762, T3 0.870.</figcaption>
+      <figcaption><b>Disentanglement AUC per CLIP backbone</b> (W8A8 QAT, ten datasets each; upgraded feature bank). Pooled means: T1 0.775, T2 0.776, T3 0.881.</figcaption>
     </figure>
     <div class="two-col">
       <div>
@@ -563,12 +562,11 @@
           <table>
             <thead><tr><th>Family</th><th>#</th><th>T1</th><th>T2</th><th>T3</th></tr></thead>
             <tbody>
-              <tr><td>VLMs (5 × CLIP)</td><td>50</td><td>0.760</td><td>0.762</td><td>0.870</td></tr>
-              <tr><td>Generative VLMs</td><td>2</td><td>0.686</td><td>0.771</td><td>0.828</td><td class="muted">—</td><td class="muted">—</td></tr>
-              <tr><td>ViT-B/16</td><td>3</td><td>0.831</td><td>0.843</td><td>0.844</td><td class="muted">—</td><td class="muted">—</td></tr>
-              <tr><td>CNN ResNet-50</td><td>3</td><td>0.683</td><td>0.692</td><td>0.707</td><td class="muted">—</td><td class="muted">—</td></tr>
-              <tr><td>LLMs</td><td>3</td><td>0.758</td><td>0.761</td><td>0.777</td><td class="muted">—</td><td class="muted">—</td></tr>
-              <tr><td>VLA (OpenVLA-7B)</td><td>1</td><td>0.633</td><td>0.646</td><td>0.668</td><td class="muted">—</td><td class="muted">—</td></tr>
+              <tr><td>VLMs (5 × CLIP)</td><td>50</td><td>0.775</td><td>0.776</td><td>0.881</td></tr>
+              <tr><td>Generative VLMs</td><td>4</td><td>0.924</td><td>0.923</td><td>0.934</td></tr>
+              <tr><td>ViT-B/16</td><td>3</td><td>0.802</td><td>0.802</td><td>0.828</td></tr>
+              <tr><td>CNN ResNet-50</td><td>3</td><td>0.683</td><td>0.692</td><td>0.707</td></tr>
+              <tr><td>LLMs</td><td>6</td><td>0.843</td><td>0.842</td><td>0.856</td></tr>
             </tbody>
           </table>
         </div>
@@ -576,18 +574,18 @@
       </div>
       <div>
         <h3 style="margin-top: 22px;">Detection comes first</h3>
-        <p style="color: var(--ink-2); font-size: 0.97rem;">Deployment also needs to find the flips against a low base rate (8.9% of 47,636 inputs). The <i>M<sub>q</sub></i>-only gate reaches PR-AUC 0.521, 5.9× the prior, at under 0.1% overhead; spending a full-precision pass on the top 10% flagged inputs lifts it to 0.847, and the top 20% to 0.954.</p>
+        <p style="color: var(--ink-2); font-size: 0.97rem;">Deployment also needs to find the flips against a low base rate (8.7% of 47,636 inputs). The <i>M<sub>q</sub></i>-only gate reaches PR-AUC 0.535, 6.1× the prior, at under 0.1% overhead; spending a full-precision pass on the top 10% flagged inputs lifts it to 0.851, and the top 20% to 0.958.</p>
       </div>
     </div>
 
     <div class="prose" style="margin-top: 36px;">
       <h3>Class density caps T1, softly</h3>
-      <p style="color: var(--ink-2); font-size: 0.97rem;">Low-class datasets (EuroSAT, GTSRB, FashionMNIST, SVHN) form a bright band at 0.76–0.98, while ImageNet-1k caps T1 at 0.55–0.62: with 1,000 classes in a fixed feature space, quantized-model-only features can no longer tell which low-rank reconstruction matches which class. A live <i>M<sub>b</sub></i> pass on flagged inputs (T3) lifts ImageNet-1k from 0.60 to 0.79, and tighter precision lifts it too, to 0.831 / 0.847 at W4A4 (ResNet-50 / ViT-B/16). Calibration size is not the bottleneck: T1 is flat from 32 to 4,096 calibration images.</p>
+      <p style="color: var(--ink-2); font-size: 0.97rem;">Low-class datasets (EuroSAT, GTSRB, FashionMNIST, SVHN) form a bright band at 0.76–0.98, while ImageNet-1k caps T1 at 0.59–0.62: with 1,000 classes in a fixed feature space, quantized-model-only features can no longer tell which low-rank reconstruction matches which class. A live <i>M<sub>b</sub></i> pass on flagged inputs (T3) lifts ImageNet-1k from 0.60 to 0.79, and tighter precision lifts it too, to 0.829 / 0.847 at W4A4 (ResNet-50 / ViT-B/16). Calibration size is not the bottleneck: Dis AUC is insensitive to the size of the fitting pool from 64 samples upward.</p>
     </div>
     <figure class="fig-plot">
       <a class="plate" href="assets/heatmap_t1.svg" target="_blank" rel="noopener noreferrer" style="max-width: 820px;">
         <img src="assets/heatmap_t1.svg" width="398" height="152" loading="lazy" decoding="async"
-             alt="Heatmap of T1 Dis AUC for five CLIP backbones by ten datasets at W8A8: values from 0.86 to 0.98 on EuroSAT, GTSRB and FashionMNIST, falling to 0.55 to 0.62 on ImageNet-1k.">
+             alt="Heatmap of T1 Dis AUC for five CLIP backbones by ten datasets at W8A8: values from 0.86 to 0.98 on EuroSAT, GTSRB and FashionMNIST, falling to 0.59 to 0.62 on ImageNet-1k.">
       </a>
       <figcaption><b>T1 Dis AUC</b>, five CLIP backbones × ten datasets, W8A8; rows and columns sorted by mean.</figcaption>
     </figure>
@@ -598,11 +596,11 @@
             <tr><th>Backbone</th><th>T1 W8A8</th><th>T3 W8A8</th><th>T1 W6A8</th><th>T3 W6A8</th></tr>
           </thead>
           <tbody>
-<tr><td>CLIP-B/32 WIT</td><td>0.767</td><td>0.871</td><td>0.759</td><td>0.879</td></tr>
-<tr><td>CLIP-B/16 WIT</td><td>0.761</td><td>0.876</td><td>0.761</td><td>0.883</td></tr>
-<tr><td>CLIP-L/14 WIT</td><td>0.780</td><td>0.873</td><td>0.766</td><td>0.879</td></tr>
-<tr><td>CLIP-L/14 LAION-2B</td><td>0.751</td><td>0.887</td><td>0.755</td><td>0.884</td></tr>
-<tr><td>DFN-B/16</td><td>0.739</td><td>0.844</td><td>0.739</td><td>0.856</td></tr>
+<tr><td>CLIP-B/32 WIT</td><td>0.779</td><td>0.873</td><td>0.761</td><td>0.879</td></tr>
+<tr><td>CLIP-B/16 WIT</td><td>0.762</td><td>0.876</td><td>0.770</td><td>0.883</td></tr>
+<tr><td>CLIP-L/14 WIT</td><td>0.785</td><td>0.880</td><td>0.769</td><td>0.879</td></tr>
+<tr><td>CLIP-L/14 LAION-2B</td><td>0.767</td><td>0.889</td><td>0.772</td><td>0.884</td></tr>
+<tr><td>DFN-B/16</td><td>0.779</td><td>0.886</td><td>0.766</td><td>0.882</td></tr>
           </tbody>
         </table>
       </div>
@@ -617,63 +615,43 @@
       <h2>Keep the good flips, repair the bad ones</h2>
     </div>
     <div class="prose">
-      <p>One head flags the inputs most likely to be bad flips; each tier repairs them from its cheapest source. On accuracy-matched CLIP-B/16 W8A8 light QAT (EuroSAT, GTSRB, SVHN, FashionMNIST, 4 × 4,000 images), T1 recovers +0.73 pp without running the full-precision model.</p>
-      <div class="table-wrap">
+      <p>Two heads flag the inputs most likely to be bad flips (a flip, and a bad one); each tier repairs them from its cheapest source. On the 50 CLIP cells (5 backbones × 10 datasets, W8A8 light QAT), T1 gains +1.96 pp with the quantized model alone and ends +0.97 pp above full precision. T3 runs the full-precision model only on the flagged inputs and climbs with that budget.</p>
+    </div>
+    <div class="table-wrap">
         <table>
           <thead>
-            <tr><th>Tier</th><th>T1</th><th>T2</th><th>T3 <i>r</i>=1%</th><th>T3 <i>r</i>=5%</th><th>T3 <i>r</i>=10%</th><th>T3 <i>r</i>=20%</th><th>Oracle</th></tr>
+            <tr><th></th><th>T1</th><th>T2</th><th>T3 <i>r</i>=1%</th><th>T3 <i>r</i>=5%</th><th>T3 <i>r</i>=10%</th><th>T3 <i>r</i>=17%</th><th>T3 <i>r</i>=20%</th><th>T3 <i>r</i>=50%</th><th>T3 <i>r</i>=70%</th><th>Oracle</th></tr>
+            <tr><th class="l">Repair</th><td>2nd-best</td><td>2nd-best</td><td><i>ŷ<sub>b</sub></i></td><td><i>ŷ<sub>b</sub></i></td><td><i>ŷ<sub>b</sub></i></td><td><i>ŷ<sub>b</sub></i></td><td><i>ŷ<sub>b</sub></i></td><td><i>ŷ<sub>b</sub></i></td><td><i>ŷ<sub>b</sub></i></td><td><i>ŷ<sub>b</sub></i></td></tr>
           </thead>
           <tbody>
-            <tr><td>Gain (pp)</td><td><strong>+0.73</strong></td><td>+0.75</td><td>+0.85</td><td>+1.08</td><td>+1.05</td><td>+1.10</td><td>+3.31</td></tr>
-            <tr><td><i>M<sub>b</sub></i> fwd / input</td><td>0</td><td>0</td><td>1</td><td>1</td><td>1</td><td>1</td><td>0.033</td></tr>
-<tr><td>Five QAT draws</td><td>+0.61 ± 0.14</td><td>+0.66 ± 0.14</td><td>+0.77 ± 0.15</td><td>+1.01 ± 0.12</td><td>+1.06 ± 0.12</td><td>+1.04 ± 0.13</td><td>+3.27 ± 0.07</td></tr>
+            <tr class="sub"><td colspan="11">Top-1 accuracy gain (pp)</td></tr>
+            <tr><td>above the quantized model</td><td>+1.96</td><td>+2.02</td><td>+2.10</td><td>+2.41</td><td>+2.73</td><td>+3.03</td><td>+3.12</td><td>+3.59</td><td>+3.63</td><td>+4.63</td></tr>
+            <tr><td>above the base model (FP)</td><td>+0.97</td><td>+1.03</td><td>+1.11</td><td>+1.42</td><td>+1.73</td><td>+2.03</td><td>+2.12</td><td>+2.60</td><td>+2.63</td><td>+3.63</td></tr>
+            <tr><td>Compute overhead (% of <i>M<sub>q</sub></i>)</td><td>0.014</td><td>0.017</td><td>1</td><td>5</td><td>10</td><td>17</td><td>20</td><td>50</td><td>70</td><td>4.6</td></tr>
           </tbody>
         </table>
-      </div>
-      <p class="table-note">Mean over four datasets; each gain is the best over 80 flag rates on the evaluated cells (5-fold out-of-fold gate scores), so it is an upper estimate for a deployment that fixes <i>r</i> in advance. The T3 gate reads <i>M<sub>b</sub></i> on every input. Last row: mean ± sd over the five regenerated QAT draws (10 cross-validation seeds each).</p>
+    </div>
+    <div class="prose">
+      <p class="table-note">Mean over the 50 cells. T1 / T2 never run the full-precision model; T3 runs it only on the <i>r</i>% of inputs the T1/T2 gate flags. Each gain takes the best flag rate on the evaluated cells, an upper estimate for a deployment that fixes <i>r</i> in advance. Compute overhead: FLOPs as a percentage of one quantized forward.</p>
     </div>
 
     <div class="prose">
       <h3 style="margin-top: 34px;">The gain grows with the damage the quantizer leaves</h3>
-      <p style="color: var(--ink-2);">The same gates on CLIP-B/16 cells from matched W8A8 to lossy W6A6. For each gate, the gain over the quantized model and the resulting accuracy relative to the full-precision model (<span class="pos">positive</span>: the gated pipeline ends above it).</p>
+      <p style="color: var(--ink-2);">The same T1 gate, quantized model only, on CLIP-B/16 cells from matched W8A8 to lossy W6A6.</p>
       <div class="table-wrap">
         <table>
           <thead>
-            <tr><th rowspan="2">Cell</th><th rowspan="2">Δacc</th><th colspan="2">T1</th><th colspan="2">T3</th></tr>
-            <tr><th>gain</th><th>vs FP</th><th>gain</th><th>vs FP</th></tr>
+            <tr><th>Cell</th><th>Δacc</th><th>Good kept</th><th>Bad left</th><th>T1 gain (pp)</th></tr>
           </thead>
           <tbody>
-<tr><td>GTSRB W8A8 (matched)</td><td>+0.39</td><td>+0.11</td><td class="pos">+0.50</td><td>+0.00</td><td class="pos">+0.39</td></tr>
-<tr><td>FashionMNIST W8A8</td><td>−2.21</td><td>+4.29</td><td class="pos">+2.08</td><td>+2.69</td><td class="pos">+0.48</td></tr>
-<tr><td>EuroSAT W6A6</td><td>−4.48</td><td>+3.41</td><td>−1.07</td><td>+9.31</td><td class="pos">+4.83</td></tr>
-<tr><td>SVHN W6A6</td><td>−16.24</td><td>+7.02</td><td>−9.22</td><td>+15.31</td><td>−0.93</td></tr>
+<tr><td>GTSRB W8A8 (matched)</td><td>+0.39</td><td>187 (222)</td><td>113 (173)</td><td>+1.13 ± 0.07</td></tr>
+<tr><td>FashionMNIST W8A8</td><td>−2.21</td><td>73 (154)</td><td>74 (375)</td><td>+5.16 ± 0.04</td></tr>
+<tr><td>EuroSAT W6A6</td><td>−4.48</td><td>1,292 (1,474)</td><td>1,351 (2,146)</td><td>+6.38 ± 0.05</td></tr>
+<tr><td>SVHN W6A6</td><td>−16.24</td><td>836 (1,105)</td><td>2,455 (3,541)</td><td>+7.66 ± 0.09</td></tr>
           </tbody>
         </table>
       </div>
-      <p class="table-note">pp, mean of 3 seeds, best flag rate on the evaluated cell. T1: quantized model only, flagged inputs repaired with the second-best class; T3: the gate also reads the full-precision model and flagged inputs take its prediction. The paper reports the T1 gains (tab:recovery); T3 is added here.</p>
-
-      <h3 style="margin-top: 34px;">Ending above the full-precision model</h3>
-      <p style="color: var(--ink-2);">Accuracy of the gated pipeline minus the accuracy of the full-precision model, on the twelve accuracy-matched CLIP-B/16 W8A8 cells of the rotation study. With the quantized model alone, the T1 gate ends +1.53 to +2.26 pp above full precision on EuroSAT and FashionMNIST for all three quantizers.</p>
-      <div class="table-wrap">
-        <table>
-          <thead><tr><th>Quantizer</th><th class="l">Dataset</th><th>Δacc</th><th>T1</th><th>T3</th></tr></thead>
-          <tbody>
-<tr><td>min–max RTN</td><td class="l">EuroSAT</td><td>+1.05</td><td class="pos best">+2.10</td><td class="pos best">+1.77</td></tr>
-<tr><td>min–max RTN</td><td class="l">GTSRB</td><td>+0.32</td><td class="pos">+0.43</td><td class="pos">+0.46</td></tr>
-<tr><td>min–max RTN</td><td class="l">SVHN</td><td>−0.41</td><td>−0.30</td><td class="pos">+0.58</td></tr>
-<tr><td>min–max RTN</td><td class="l">FashionMNIST</td><td>−2.10</td><td class="pos best">+1.91</td><td class="pos">+0.50</td></tr>
-<tr><td>QuaRot + GPTQ</td><td class="l">EuroSAT</td><td>+1.31</td><td class="pos best">+2.10</td><td class="pos best">+1.84</td></tr>
-<tr><td>QuaRot + GPTQ</td><td class="l">GTSRB</td><td>+0.25</td><td class="pos">+0.55</td><td class="pos">+0.45</td></tr>
-<tr><td>QuaRot + GPTQ</td><td class="l">SVHN</td><td>−0.06</td><td>−0.15</td><td class="pos">+0.53</td></tr>
-<tr><td>QuaRot + GPTQ</td><td class="l">FashionMNIST</td><td>−2.09</td><td class="pos best">+1.67</td><td class="pos">+0.37</td></tr>
-<tr><td>SpinQuant + GPTQ</td><td class="l">EuroSAT</td><td>+1.36</td><td class="pos best">+2.26</td><td class="pos best">+2.10</td></tr>
-<tr><td>SpinQuant + GPTQ</td><td class="l">GTSRB</td><td>+0.39</td><td class="pos">+0.74</td><td class="pos">+0.69</td></tr>
-<tr><td>SpinQuant + GPTQ</td><td class="l">SVHN</td><td>−0.20</td><td>−0.11</td><td class="pos">+0.57</td></tr>
-<tr><td>SpinQuant + GPTQ</td><td class="l">FashionMNIST</td><td>−1.96</td><td class="pos best">+1.53</td><td class="pos">+0.47</td></tr>
-          </tbody>
-        </table>
-      </div>
-      <p class="table-note">pp relative to the full-precision model; Δacc: the quantized model before the gate. Best flag rate on the evaluated cell, mean of 3 seeds (with the flag rate chosen on a held-out half, T1 on EuroSAT ends +1.84 / +1.99 / +1.74 pp above full precision). Highlighted: at least +1 pp.</p>
+      <p class="table-note">CLIP-B/16, min–max PTQ. Good / Bad: good flips kept and bad flips left after the gate (before it in parentheses). Gain: best flag rate, mean ± sd over 3 seeds.</p>
     </div>
   </section>
 
@@ -684,35 +662,36 @@
       <h2>Every production quantizer gains</h2>
     </div>
     <div class="prose">
-      <p>The three-tier pipeline on production PTQ recipes for CLIP zero-shot deployment on GTSRB, plus cross-architecture cells. Here every row is scored with the paper's gate (rank-<i>K</i> readouts of Table 3), with the protocol of the paper's Table 4: the same cells, one head on bad flips, the best of 50 flag rates, and repair of the flagged inputs with the full-precision prediction.</p>
+      <p>The pipeline on production quantizers: GPTQ, SmoothQuant, AWQ and the stock recipes of NVIDIA TensorRT Model Optimizer for zero-shot CLIP on GTSRB, plus quantized LLMs and VLMs (QAT, bitsandbytes-INT8, TensorRT). With a 2–5 pp drop, T1 recovers 2.9–3.6 pp and T3, which runs the full-precision model on 20% of the inputs, 5.2–6.3 pp, ending up to 3.4 pp above full precision.</p>
     </div>
     <div class="table-wrap">
       <table>
         <thead>
-          <tr><th rowspan="2">Model</th><th rowspan="2" class="l">Quantizer</th><th rowspan="2">Δ (pp)</th><th colspan="2">Dis AUC</th><th colspan="2">Gain (pp)</th></tr>
-          <tr><th>T1</th><th>T3</th><th>T1</th><th>T3</th></tr>
+          <tr><th rowspan="2">Model</th><th rowspan="2" class="l">Data / Quant</th><th rowspan="2">Quant. loss Δ (pp)</th><th colspan="2">Flips after (before)</th><th rowspan="2">PR-AUC (random)</th><th colspan="2">Dis AUC</th><th colspan="2">Gain (pp)</th></tr>
+          <tr><th>Good</th><th>Bad</th><th>T1</th><th>T3</th><th>T1</th><th>T3</th></tr>
         </thead>
         <tbody>
-<tr class="sub"><td colspan="7">State-of-the-art PTQ at W8A8, CLIP / GTSRB</td></tr>
-<tr><td>CLIP-B/32</td><td class="l">GPTQ W8A8</td><td>+0.07</td><td>0.719</td><td>0.733</td><td class="pos">+0.86</td><td class="pos">+0.86</td></tr>
-<tr><td>CLIP-B/32</td><td class="l">SmoothQuant W8A8</td><td>+0.02</td><td>0.709</td><td>0.709</td><td class="pos">+0.45</td><td class="pos">+0.46</td></tr>
-<tr><td>CLIP-B/32</td><td class="l">AWQ W8 (weight-only)</td><td>−0.02</td><td>0.724</td><td>0.724</td><td class="pos">+0.37</td><td class="pos">+0.51</td></tr>
-<tr class="sub"><td colspan="7">CLIP deployment</td></tr>
-<tr><td>CLIP-B/16</td><td class="l">GPTQ W8A8</td><td>+0.55</td><td>0.707</td><td>0.707</td><td>+0.18</td><td>+0.18</td></tr>
-<tr><td>CLIP-B/16</td><td class="l">QuaRot + GPTQ W8A8</td><td>+0.25</td><td>0.667</td><td>0.712</td><td class="pos">+0.29</td><td class="pos">+0.29</td></tr>
-<tr><td>CLIP-B/16</td><td class="l">SpinQuant + GPTQ W8A8</td><td>+0.39</td><td>0.708</td><td>0.715</td><td class="pos">+0.46</td><td class="pos">+0.46</td></tr>
-<tr><td>CLIP-B/16</td><td class="l">GPTQ W6A6</td><td>−3.40</td><td>0.708</td><td>0.787</td><td class="pos">+4.50</td><td class="pos">+4.50</td></tr>
-<tr><td>CLIP-B/16</td><td class="l">QuaRot + GPTQ W4A8</td><td>−4.00</td><td>0.707</td><td>0.776</td><td class="pos">+4.45</td><td class="pos">+4.75</td></tr>
-<tr><td>CLIP-B/32</td><td class="l">AWQ W6</td><td>−2.94</td><td>0.749</td><td>0.797</td><td class="pos">+4.39</td><td class="pos">+4.99</td></tr>
-<tr class="sub"><td colspan="7">Cross-architecture deployment</td></tr>
-<tr><td>ResNet-50 / GTSRB</td><td class="l">Full-FT QAT W8A8</td><td>−1.99</td><td>0.886</td><td>0.895</td><td class="pos">+2.30</td><td class="pos">+2.40</td></tr>
-<tr><td>Qwen2.5-VL-3B / OK-VQA</td><td class="l">bitsandbytes INT8</td><td>+0.00</td><td>0.673</td><td>0.720</td><td class="pos">+1.38</td><td class="pos">+1.38</td></tr>
-<tr><td>Llama-3.2-3B / TriviaQA</td><td class="l">bitsandbytes NF4</td><td>−5.00</td><td>0.640</td><td>0.797</td><td>+3.87</td><td class="pos">+5.27</td></tr>
+<tr class="sub"><td colspan="10">(a) Little or no damage on CLIP / GTSRB (|Δ| < 1 pp)</td></tr>
+<tr><td>CLIP-B/32</td><td class="l">GPTQ W8A8</td><td>+0.07</td><td>406 (459)</td><td>210 (450)</td><td>0.638 (0.228)</td><td>0.768</td><td>0.896</td><td><span class="pos">+2.28</span></td><td><span class="pos">+2.79</span></td></tr>
+<tr><td>CLIP-B/32</td><td class="l">TRT INT4-AWQ</td><td>−0.32</td><td>321 (337)</td><td>191 (350)</td><td>0.872 (0.530)</td><td>0.750</td><td>0.917</td><td><span class="pos">+1.57</span></td><td><span class="pos">+3.93</span></td></tr>
+<tr><td>CLIP-B/32</td><td class="l">TRT INT8-SQ</td><td>−0.02</td><td>149 (171)</td><td>94 (172)</td><td>0.718 (0.276)</td><td>0.694</td><td>0.828</td><td><span class="pos">+1.57</span></td><td><span class="pos">+2.22</span></td></tr>
+<tr><td>CLIP-B/32</td><td class="l">SmoothQ W8A8</td><td>+0.02</td><td>231 (298)</td><td>140 (296)</td><td>0.543 (0.152)</td><td>0.754</td><td>0.856</td><td><span class="pos">+1.43</span></td><td><span class="pos">+1.97</span></td></tr>
+<tr><td>CLIP-B/32</td><td class="l">AWQ W8</td><td>−0.02</td><td>212 (252)</td><td>124 (254)</td><td>0.518 (0.127)</td><td>0.764</td><td>0.851</td><td><span class="pos">+1.36</span></td><td><span class="pos">+1.62</span></td></tr>
+<tr class="sub"><td colspan="10">(b) CLIP / GTSRB deployment with a 2–5 pp drop</td></tr>
+<tr><td>CLIP-L/14</td><td class="l">TRT INT4-WO</td><td>−4.10</td><td>142 (182)</td><td>151 (346)</td><td>0.693 (0.325)</td><td>0.737</td><td>0.908</td><td>+3.58</td><td><span class="pos">+5.25</span></td></tr>
+<tr><td>CLIP-L/14</td><td class="l">TRT INT8</td><td>−2.88</td><td>340 (361)</td><td>217 (476)</td><td>0.820 (0.472)</td><td>0.760</td><td>0.940</td><td><span class="pos">+3.48</span></td><td><span class="pos">+6.30</span></td></tr>
+<tr><td>CLIP-B/32</td><td class="l">AWQ W6</td><td>−2.94</td><td>637 (754)</td><td>441 (1,125)</td><td>0.854 (0.474)</td><td>0.788</td><td>0.941</td><td>+2.86</td><td><span class="pos">+5.57</span></td></tr>
+<tr class="sub"><td colspan="10">(c) Cross-architecture deployment</td></tr>
+<tr><td>LLaVA-1.5-7B</td><td class="l">EuroSAT / bnb-INT8</td><td>−3.72</td><td>271 (326)</td><td>70 (1,069)</td><td>0.703 (0.135)</td><td>0.939</td><td>0.971</td><td><span class="pos">+4.41</span></td><td><span class="pos">+4.83</span></td></tr>
+<tr><td>Qwen2.5-1.5B</td><td class="l">AG News / W8A8 QAT</td><td>−2.07</td><td>221 (253)</td><td>25 (667)</td><td>0.643 (0.050)</td><td>0.960</td><td>0.965</td><td><span class="pos">+3.04</span></td><td><span class="pos">+3.08</span></td></tr>
+<tr><td>Qwen2-VL-2B</td><td class="l">CIFAR-10 / TRT INT8</td><td>−4.53</td><td>6 (57)</td><td>5 (510)</td><td>0.880 (0.067)</td><td>0.779</td><td>0.911</td><td>+2.93</td><td><span class="pos">+4.59</span></td></tr>
+<tr><td>Qwen2.5-VL-3B</td><td class="l">EuroSAT / bnb-INT8</td><td>−2.68</td><td>142 (179)</td><td>90 (715)</td><td>0.736 (0.096)</td><td>0.870</td><td>0.936</td><td>+2.52</td><td><span class="pos">+2.95</span></td></tr>
+<tr><td>Qwen2.5-VL-3B</td><td class="l">EuroSAT / W8A8 QAT</td><td>−2.40</td><td>104 (129)</td><td>90 (610)</td><td>0.696 (0.083)</td><td>0.858</td><td>0.929</td><td>+2.28</td><td><span class="pos">+2.48</span></td></tr>
         </tbody>
       </table>
     </div>
     <div class="prose">
-      <p class="table-note">Δ: quantized minus full-precision accuracy; <span class="pos">green</span> gains exceed |Δ|, i.e. the gated pipeline ends above the full-precision model. T1: quantized-model-only gate, full-precision prediction on the flagged inputs; T3: a gate that also reads the full-precision model on every input. Scored after acceptance with the paper's gate; the paper's Table 4 uses an earlier deployment evaluator whose T1 features are confidence statistics and subspace energies only. The two generative rows keep the paper's values (confidence features of the generated text).</p>
+      <p class="table-note">Δ: quantized minus full-precision accuracy; <span class="pos">green</span>: the pipeline ends above the full-precision model. T1: quantized model only, flagged inputs repaired with the second-best class. T3: T1, plus the full-precision model on the 20% of inputs the T1 gate scores highest. LLaVA and Qwen2.5 rows: only the gain on flipped inputs is counted. All gains are significant (p &lt; 5×10<sup>−4</sup>, bootstrap). TRT: NVIDIA TensorRT Model Optimizer stock recipe (simulated quantization; SQ: SmoothQuant, WO: weight-only).</p>
     </div>
   </section>
 
@@ -746,15 +725,15 @@
           <table>
             <thead><tr><th>Cell</th><th>QAT</th><th>PTQ</th><th>DropBlock</th><th>Gauss.</th><th>Dropout</th></tr></thead>
             <tbody>
-              <tr><td>R-50 / GTSRB</td><td class="best">.814</td><td>.747</td><td>.672</td><td>.647</td><td>.693</td></tr>
-              <tr><td>R-50 / C-100</td><td class="best">.659</td><td>.646</td><td>.563</td><td>.576</td><td>.560</td></tr>
-              <tr><td>ViT / GTSRB</td><td class="best">.793</td><td>.771</td><td>.695</td><td>.684</td><td>.595</td></tr>
-              <tr><td>CLIP / C-10</td><td class="best">.720</td><td>.663</td><td>.719</td><td>.696</td><td>.707</td></tr>
-              <tr><td>Average</td><td class="best">.747</td><td>.707</td><td>.662</td><td>.651</td><td>.638</td></tr>
+              <tr><td>R-50 / GTSRB</td><td class="best">.949</td><td>.772</td><td>.500*</td><td>.795</td><td>.579</td></tr>
+              <tr><td>R-50 / C-100</td><td class="best">.671</td><td>.647</td><td>.589</td><td>.605</td><td>.595</td></tr>
+              <tr><td>ViT / GTSRB</td><td>.874</td><td class="best">.900</td><td>.823</td><td>.583</td><td>.540</td></tr>
+              <tr><td>CLIP / C-10</td><td class="best">.787</td><td>.778</td><td>.684</td><td class="best">.787</td><td>.727</td></tr>
+              <tr><td>Average</td><td class="best">.820</td><td>.774</td><td>.649</td><td>.693</td><td>.610</td></tr>
             </tbody>
           </table>
         </div>
-        <p class="table-note">Matched-accuracy Dis AUC when the quantizer is replaced by a regularizer of comparable severity. On CLIP-B/32 / CIFAR-100, QAT concentrates half of the feature drift in 21 baseline directions, against 43 for PTQ and 30–45 for matched Gaussian noise.</p>
+        <p class="table-note">Matched-accuracy Dis AUC when the quantizer is replaced by a regularizer of comparable severity.</p>
       </div>
     </div>
     <div class="prose">
@@ -764,11 +743,11 @@
           <thead><tr><th>Model</th><th>W8A8</th><th>W6A6</th><th>W4A4</th></tr></thead>
           <tbody>
             <tr class="sub"><td colspan="4">CIFAR-100 (100 classes)</td></tr>
-            <tr><td>ResNet-56</td><td>0.582</td><td>0.596</td><td>0.636*</td></tr>
+            <tr><td>ResNet-50</td><td>0.582</td><td>0.596</td><td>0.636*</td></tr>
             <tr><td>ViT-B/16</td><td>0.619</td><td>0.757</td><td>0.850*</td></tr>
             <tr class="sub"><td colspan="4">ImageNet-1k (1,000 classes)</td></tr>
-            <tr><td>ResNet-50</td><td>0.694</td><td>0.707</td><td>0.831*</td></tr>
-            <tr><td>ViT-B/16</td><td>0.650</td><td>0.764</td><td>0.847*</td></tr>
+            <tr><td>ResNet-50</td><td>0.575</td><td>0.629</td><td>0.829*</td></tr>
+            <tr><td>ViT-B/16</td><td>0.617</td><td>0.706</td><td>0.847*</td></tr>
           </tbody>
         </table>
       </div>

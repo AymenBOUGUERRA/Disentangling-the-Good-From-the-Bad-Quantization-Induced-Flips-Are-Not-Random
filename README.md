@@ -16,7 +16,7 @@ Université Paris-Saclay, CEA-List
 
 <sub><b>(A)</b> The quantized softmax margin used by prior work overlaps for good (IC) and bad (CI) flips.
 <b>(B)</b> Along the SVD rank of the quantized model's own feature space, good flips emerge at low ranks and bad flips need the high-rank tail.
-<b>(C)</b> A confidence score and a spectral score together largely disentangle the two populations (pooled CLIP-B/16, W8A8 QAT, 12,890 flips).</sub>
+<b>(C)</b> A confidence score and a spectral score together largely disentangle the two populations (pooled CLIP-B/16, W8A8 QAT, 13,205 flips).</sub>
 
 </div>
 
@@ -41,14 +41,14 @@ The reproduction code is available at
 - 🔬 **Flips are structured, not random:** good flips emerge at low SVD ranks of the quantized feature space
   (median rank 24), bad flips need the high-rank tail (median 48).
 - 🧮 **Disentangled from the quantized model alone:** on 50 CLIP cells (5 backbones × 10 datasets, W8A8) the T1 gate
-  reaches a mean Dis AUC of **0.760**, and **0.870** when the full-precision model is consulted on the flagged
+  reaches a mean Dis AUC of **0.775**, and **0.881** when the full-precision model is consulted on the flagged
   inputs (T3).
 - 🎯 **Spectral, not confidence:** on the same cells and head, the spectral bank beats softmax confidence on every
   cell of the ablation (0.838 vs 0.626 mean Dis AUC) and the raw quantized features on 10 of 12.
-- 📈 **Accuracy recovered:** on accuracy-matched CLIP-B/16 W8A8 QAT the T1 gate recovers **+0.73 pp** without running
-  the full-precision model; on production PTQ (GPTQ, QuaRot / SpinQuant + GPTQ, SmoothQuant, AWQ, bitsandbytes)
-  every recipe gains, up to **+5.27 pp**.
-- ⚡ **Negligible cost:** the T1 / T2 gate adds about **0.03%** of a CLIP-B/16 forward in compute, with no second
+- 📈 **Accuracy recovered:** on the 50 CLIP cells the T1 gate gains **+1.96 pp** with the quantized model alone and
+  ends **+0.97 pp** above full precision; on production quantizers (GPTQ, SmoothQuant, AWQ, TensorRT Model Optimizer,
+  bitsandbytes, QAT) T3 ends up to **+3.42 pp** above full precision.
+- ⚡ **Negligible cost:** the T1 / T2 gate adds about **0.014%** of a quantized forward in compute, with no second
   model in memory.
 
 <details>
