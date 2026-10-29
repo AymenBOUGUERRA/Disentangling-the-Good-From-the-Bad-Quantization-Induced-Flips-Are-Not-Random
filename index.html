@@ -467,9 +467,9 @@
           <div class="stat-note">T3, TensorRT INT8, CLIP-L/14 / GTSRB</div>
         </div>
         <div class="stat">
-          <div class="stat-value">0.014%</div>
+          <div class="stat-value">0.045%</div>
           <div class="stat-label">Gate compute vs a quantized forward</div>
-          <div class="stat-note">T1 / T2: no second model in memory</div>
+          <div class="stat-note">T1, mean over the 50 CLIP cells; no second model in memory</div>
         </div>
       </div>
     </div>
@@ -536,7 +536,7 @@
           </tbody>
         </table>
       </div>
-      <p class="table-note"><i>r</i>: flag rate. The second-best class of <i>p<sub>q</sub></i> equals the label for about three quarters of bad flips and essentially no good flips, so a flagged input can be repaired without a full-precision pass. The T1 / T2 gate adds 0.014–0.017% of a quantized forward in compute; T1 uses the quantized model only.</p>
+      <p class="table-note"><i>r</i>: flag rate. The second-best class of <i>p<sub>q</sub></i> equals the label for about three quarters of bad flips and essentially no good flips, so a flagged input can be repaired without a full-precision pass. The T1 / T2 gate adds 0.045–0.053% of a quantized forward in compute (mean over the 50 CLIP cells); T1 uses the quantized model only.</p>
     </div>
   </section>
 
@@ -627,12 +627,12 @@
             <tr class="sub"><td colspan="11">Top-1 accuracy gain (pp)</td></tr>
             <tr><td>above the quantized model</td><td>+1.97</td><td>+2.03</td><td>+2.11</td><td>+2.44</td><td>+2.77</td><td>+3.10</td><td>+3.19</td><td>+3.70</td><td>+3.74</td><td>+4.83</td></tr>
             <tr><td>above the base model (FP)</td><td>+0.86</td><td>+0.92</td><td>+1.01</td><td>+1.33</td><td>+1.66</td><td>+1.99</td><td>+2.08</td><td>+2.59</td><td>+2.64</td><td>+3.72</td></tr>
-            <tr><td>Compute overhead (% of <i>M<sub>q</sub></i>)</td><td>0.014</td><td>0.017</td><td>1</td><td>5</td><td>10</td><td>17</td><td>20</td><td>50</td><td>70</td><td>4.8</td></tr>
+            <tr><td>Compute overhead (% of <i>M<sub>q</sub></i>)</td><td>0.045</td><td>0.053</td><td>1</td><td>5</td><td>10</td><td>17</td><td>20</td><td>50</td><td>70</td><td>4.8</td></tr>
           </tbody>
         </table>
     </div>
     <div class="prose">
-      <p class="table-note">Mean over the 50 cells. T1 / T2 never run the full-precision model; T3 runs it only on the <i>r</i>% of inputs the T1/T2 gate flags. Each gain takes the best flag rate on the evaluated cells, an upper estimate for a deployment that fixes <i>r</i> in advance. Compute overhead: FLOPs as a percentage of one quantized forward.</p>
+      <p class="table-note">Mean over the 50 cells. T1 / T2 never run the full-precision model; T3 runs it only on the <i>r</i>% of inputs the T1/T2 gate flags. Each gain takes the best flag rate on the evaluated cells, an upper estimate for a deployment that fixes <i>r</i> in advance. Compute overhead: FLOPs as a percentage of one quantized forward; for T1 / T2, the feature bank and both heads (at most 0.57%, on B/32 ImageNet-1k).</p>
     </div>
 
     <div class="prose">
@@ -803,7 +803,7 @@
     </div>
 
     <h3 style="margin-top: 40px;">Related work</h3>
-    <a class="related" href="https://proceedings.mlr.press/v306/bouguerra26a.html" target="_blank" rel="noopener noreferrer">
+    <a class="related" href="https://aymenbouguerra.github.io/Less-Precise-Can-Be-More-Reliable/" target="_blank" rel="noopener noreferrer">
       <div class="t">Less Precise Can Be More Reliable: A Systematic Evaluation of Quantization's Impact on VLMs Beyond Accuracy</div>
       <div class="a"><b>Aymen Bouguerra</b>, Daniel Alfonso Montoya Vasquez, Alexandra Gomez-Villa, Chokri Mraidha, Fabio Arnez</div>
       <div class="m">ICML 2026 · the spectral description of quantization this work builds on</div>
