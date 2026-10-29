@@ -57,7 +57,7 @@ The reproduction code is available at
 
 Model quantization has advanced tremendously in recent years, producing models that require a fraction of the compute while maintaining baseline accuracy and creating the illusion of lossless compression. Beneath the surface, however, model behavior undergoes severe shifts that simple global accuracy fails to capture. Notably, quantized models experience a high rate of "flips": individual predictions that change from correct to incorrect (bad flips-CI) and vice versa (good flips-IC). Although overall accuracy remains stable, these changes degrade model reliability and introduce unforeseen safety risks. Current literature largely attributes these flips to random rounding noise, a perspective that ignores the specific precision constraints imposed by quantization with or without training.
 
-In this paper, we show that flips are driven by quantization's implicit regularization, low-pass filtering, and exacerbated spectral bias. By analyzing these effects via Singular Value Decomposition (SVD), we leverage the model's low-to-high rank internal disagreement to disentangle good flips from bad ones. Building on this insight, we introduce a post-hoc gate, fitted once with labels on a calibration pool, that flags likely bad flips and repairs them while leaving good flips untouched: a standalone tier needs only the quantized model, and a selective tier additionally consults the full-precision model. We test the disentanglement from Post-Training Quantization (PTQ) to Quantization-Aware Training (QAT) across vision, language, and multi-modal models, with the densest evidence on 50 CLIP settings; the signal weakens as the number of classes grows. With this work, we aim not only to restore the quantized model's hidden reliability degradation but, on accuracy-matched settings and with the quantized model alone, to lift it above its full-precision counterpart.
+In this paper, we show that flips are driven by quantization's implicit regularization, low-pass filtering, and exacerbated spectral bias. By analyzing these effects via Singular Value Decomposition (SVD), we leverage the model's low-to-high rank internal disagreement to disentangle good flips from bad ones. Building on this insight, we introduce supervised post-hoc gates, quantized-only or selectively querying the full-precision model, to preserve the former while correcting the latter, and we validate our disentanglement through experiments spanning Post-Training Quantization to Quantization-Aware Training across vision, language, and multi-modal models. With this work, we aim not only to restore the quantized model's hidden reliability degradation but also to elevate it beyond the accuracy ceiling of its full-precision counterpart.
 
 </details>
 
@@ -66,8 +66,8 @@ In this paper, we show that flips are driven by quantization's implicit regulari
 <p align="center"><img src="assets/method.png" width="820" alt="Objects and notation, and the three deployment tiers T1, T2, T3"></p>
 
 A feature bank built from the quantized model's own SVD basis (rank-*K* readouts, the rank at which each prediction
-emerges, softmax statistics) feeds a single gradient-boosted head that scores how likely an input is a bad flip. The
-top-*r*% inputs are repaired: **T1** and **T2** use the second-best class of the quantized model (T2 adds a cached
+emerges, softmax statistics) feeds two gradient-boosted heads, one for how likely an input is a flip and one for how likely a flip is
+bad; the top-*r*% inputs by their product are repaired: **T1** and **T2** use the second-best class of the quantized model (T2 adds a cached
 full-precision basis to the features), **T3** calls the full-precision model on the flagged inputs.
 
 ## 📊 Key results
