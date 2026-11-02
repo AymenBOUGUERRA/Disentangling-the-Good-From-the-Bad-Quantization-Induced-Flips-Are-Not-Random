@@ -1,0 +1,980 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Disentangling the Good From the Bad: Quantization-Induced Flips Are Not Random</title>
+<meta name="description" content="NeurIPS 2026. Quantization-induced prediction flips are not random: good and bad flips separate along the SVD rank of the quantized model's own feature space, so a post-hoc gate can keep the good flips and repair the bad ones.">
+<meta name="author" content="Aymen Bouguerra, Fabio Arnez, Alexandra Gomez-Villa, Chokri Mraidha">
+<meta name="color-scheme" content="light dark">
+<link rel="canonical" href="https://aymenbouguerra.github.io/Disentangling-the-Good-From-the-Bad-Quantization-Induced-Flips-Are-Not-Random/">
+
+<meta property="og:type" content="website">
+<meta property="og:title" content="Disentangling the Good From the Bad: Quantization-Induced Flips Are Not Random">
+<meta property="og:description" content="NeurIPS 2026. Quantization-induced prediction flips are not random: good and bad flips separate along the SVD rank of the quantized model's own feature space, so a post-hoc gate can keep the good flips and repair the bad ones.">
+<meta property="og:url" content="https://aymenbouguerra.github.io/Disentangling-the-Good-From-the-Bad-Quantization-Induced-Flips-Are-Not-Random/">
+<meta property="og:image" content="https://aymenbouguerra.github.io/Disentangling-the-Good-From-the-Bad-Quantization-Induced-Flips-Are-Not-Random/assets/social_card.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+
+<meta name="citation_title" content="Disentangling the Good From the Bad: Quantization-Induced Flips Are Not Random">
+<meta name="citation_author" content="Bouguerra, Aymen">
+<meta name="citation_author" content="Arnez, Fabio">
+<meta name="citation_author" content="Gomez-Villa, Alexandra">
+<meta name="citation_author" content="Mraidha, Chokri">
+<meta name="citation_conference_title" content="Advances in Neural Information Processing Systems (NeurIPS)">
+<meta name="citation_publication_date" content="2026">
+
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%235046b8'/%3E%3Ccircle cx='11' cy='16' r='5.5' fill='%2366bb6a'/%3E%3Ccircle cx='21' cy='16' r='5.5' fill='%23ef5350'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+<script>
+  (function () {
+    try {
+      var t = localStorage.getItem("theme");
+      if (t === "light" || t === "dark") document.documentElement.setAttribute("data-theme", t);
+    } catch (e) {}
+  })();
+</script>
+
+<style>
+  :root {
+    --bg: #fafaf8;
+    --surface: #ffffff;
+    --surface-2: #f2f3f5;
+    --ink: #15171c;
+    --ink-2: #454b56;
+    --ink-3: #676e7a;
+    --line: #e2e4e8;
+    --line-strong: #cdd1d8;
+    --accent: #5046b8;
+    --accent-ink: #463ca3;
+    --accent-soft: #ecebfa;
+    --good: #2e7d32;
+    --bad: #c62828;
+    --on-accent: #ffffff;
+    --window: #fff3c9;
+    --window-ink: #6f5400;
+    --plate: #ffffff;
+    --plate-line: #e2e4e8;
+    --shadow: 0 1px 2px rgba(16, 24, 40, 0.04), 0 2px 6px rgba(16, 24, 40, 0.05);
+    --radius: 14px;
+    --font: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0e1014;
+      --surface: #151920;
+      --surface-2: #1b2028;
+      --ink: #e7e9ed;
+      --ink-2: #b3b9c3;
+      --ink-3: #8c939f;
+      --line: #262c35;
+      --line-strong: #353c48;
+      --accent: #a29af0;
+      --accent-ink: #bcb6f6;
+      --accent-soft: #221d42;
+      --good: #74c477;
+      --bad: #f07a72;
+      --on-accent: #110e26;
+      --window: #3a3114;
+      --window-ink: #ecca62;
+      --plate: #ffffff;
+      --plate-line: #2b313a;
+      --shadow: none;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0e1014;
+    --surface: #151920;
+    --surface-2: #1b2028;
+    --ink: #e7e9ed;
+    --ink-2: #b3b9c3;
+    --ink-3: #8c939f;
+    --line: #262c35;
+    --line-strong: #353c48;
+    --accent: #a29af0;
+    --accent-ink: #bcb6f6;
+    --accent-soft: #221d42;
+    --good: #74c477;
+    --bad: #f07a72;
+    --on-accent: #110e26;
+    --window: #3a3114;
+    --window-ink: #ecca62;
+    --plate: #ffffff;
+    --plate-line: #2b313a;
+    --shadow: none;
+    color-scheme: dark;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  @media (prefers-reduced-motion: no-preference) { html { scroll-behavior: smooth; } }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font: 400 17px/1.65 var(--font);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    overflow-x: hidden;
+  }
+  img { max-width: 100%; }
+  a { color: var(--accent-ink); text-decoration-thickness: 1px; text-underline-offset: 3px; }
+  a:hover { text-decoration-thickness: 2px; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 6px; }
+  em { font-style: italic; }
+  strong { font-weight: 600; color: var(--ink); }
+
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 0 24px; }
+  .prose { max-width: 760px; margin-left: auto; margin-right: auto; }
+  @media (max-width: 640px) {
+    body { font-size: 16px; }
+    .wrap { padding: 0 16px; }
+  }
+
+  /* ---------- top bar ---------- */
+  .topbar {
+    position: sticky; top: 0; z-index: 20;
+    background: color-mix(in srgb, var(--bg) 86%, transparent);
+    -webkit-backdrop-filter: saturate(1.4) blur(10px);
+    backdrop-filter: saturate(1.4) blur(10px);
+    border-bottom: 1px solid var(--line);
+  }
+  .topbar-inner {
+    max-width: 1120px; margin: 0 auto; padding: 0 24px;
+    display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center;
+    gap: 6px 10px; padding-block: 10px 6px;
+  }
+  .brand { min-width: 0; font-weight: 700; font-size: 0.92rem; line-height: 1.35; color: var(--ink); text-decoration: none; letter-spacing: -0.005em; text-wrap: balance; }
+  .home-btn {
+    flex: none; height: 36px; padding: 0 12px; border-radius: 9px; display: inline-flex; align-items: center; gap: 7px;
+    border: 1px solid var(--line); background: var(--surface); color: var(--ink-2);
+    font-size: 0.84rem; font-weight: 600; text-decoration: none; white-space: nowrap;
+  }
+  .home-btn:hover { color: var(--accent); border-color: var(--line-strong); }
+  .home-btn svg { width: 16px; height: 16px; }
+  .brand span { color: var(--ink-3); font-weight: 500; }
+  .nav { grid-column: 1 / -1; grid-row: 2; display: flex; gap: 2px; overflow-x: auto; scrollbar-width: none; min-width: 0; margin-left: -10px; }
+  .nav::-webkit-scrollbar { display: none; }
+  .nav a {
+    padding: 6px 10px; border-radius: 8px; font-size: 0.86rem; font-weight: 500;
+    color: var(--ink-2); text-decoration: none; white-space: nowrap;
+  }
+  .nav a:hover, .nav a.active { color: var(--ink); background: var(--surface-2); }
+  .theme-btn {
+    flex: none; width: 36px; height: 36px; border-radius: 9px; cursor: pointer;
+    border: 1px solid var(--line); background: var(--surface); color: var(--ink-2);
+    display: grid; place-items: center; padding: 0;
+  }
+  .theme-btn:hover { color: var(--ink); border-color: var(--line-strong); }
+  .theme-btn svg { width: 18px; height: 18px; }
+  .theme-btn .moon { display: none; }
+  :root[data-theme="dark"] .theme-btn .sun { display: none; }
+  :root[data-theme="dark"] .theme-btn .moon { display: block; }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) .theme-btn .sun { display: none; }
+    :root:not([data-theme="light"]) .theme-btn .moon { display: block; }
+  }
+  @media (max-width: 640px) {
+    .topbar-inner { padding: 8px 16px 4px; gap: 4px 8px; }
+    .home-btn { padding: 0; width: 36px; justify-content: center; }
+    .home-btn span { display: none; }
+    .nav { justify-content: flex-start; }
+  }
+
+  /* ---------- hero ---------- */
+  .hero { padding: 64px 0 8px; text-align: center; }
+  .venue {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 5px 12px; border-radius: 999px;
+    border: 1px solid var(--line-strong); background: var(--surface);
+    font-size: 0.8rem; font-weight: 600; letter-spacing: 0.02em; color: var(--ink-2);
+  }
+  .venue i { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); display: inline-block; }
+  .venue-full { margin: 8px 0 0; font-size: 0.86rem; font-style: italic; color: var(--ink-3); }
+  h1 {
+    font-size: clamp(1.9rem, 4vw, 2.75rem); line-height: 1.14; letter-spacing: -0.026em;
+    font-weight: 700; margin: 22px auto 22px; max-width: 1000px; text-wrap: balance;
+  }
+  @media (max-width: 760px) { .br-wide { display: none; } }
+  .authors {
+    display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 22px;
+    margin: 0; padding: 0; list-style: none; font-size: 1.1rem; font-weight: 500;
+  }
+  .affil { margin: 10px 0 0; color: var(--ink-2); font-size: 1rem; }
+  .actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: 30px; }
+  .btn {
+    display: inline-flex; align-items: center; gap: 9px;
+    min-height: 44px; padding: 0 18px; border-radius: 999px;
+    border: 1px solid var(--line-strong); background: var(--surface); color: var(--ink);
+    font-weight: 600; font-size: 0.95rem; text-decoration: none; line-height: 1.2;
+    transition: border-color .15s, background-color .15s;
+  }
+  .btn:hover { border-color: var(--ink-3); text-decoration: none; }
+  .btn svg { width: 18px; height: 18px; flex: none; }
+  .btn .tag {
+    font-size: 0.72rem; font-weight: 600; padding: 3px 8px; border-radius: 999px;
+    background: var(--surface-2); color: var(--ink-2);
+  }
+  .btn-primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+  .btn-primary:hover { border-color: var(--accent); filter: brightness(1.06); }
+  .btn-primary .tag { background: color-mix(in srgb, var(--on-accent) 18%, transparent); color: var(--on-accent); }
+  .btn[aria-disabled="true"] { color: var(--ink-3); border-style: dashed; cursor: default; }
+  .btn[aria-disabled="true"]:hover { border-color: var(--line-strong); }
+
+  /* ---------- overview ---------- */
+  .overview {
+    display: grid; grid-template-columns: minmax(0, 430px) minmax(0, 1fr);
+    gap: 48px; align-items: center; margin-top: 56px;
+  }
+  .overview figure { margin: 0; }
+  .label {
+    display: inline-block; font-size: 0.76rem; font-weight: 700; letter-spacing: 0.08em;
+    text-transform: uppercase; color: var(--accent-ink);
+  }
+  .tldr p { font-size: 1.14rem; line-height: 1.6; margin: 8px 0 0; color: var(--ink); }
+  .stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 28px; }
+  .stat { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px 15px; }
+  .stat-value { font-size: clamp(1.55rem, 3vw, 2.05rem); font-weight: 600; letter-spacing: -0.02em; line-height: 1.1; }
+  .stat-label { font-size: 0.92rem; font-weight: 600; margin-top: 8px; line-height: 1.35; }
+  .stat-note { font-size: 0.84rem; color: var(--ink-3); margin-top: 3px; line-height: 1.4; }
+  @media (max-width: 900px) {
+    .overview { grid-template-columns: minmax(0, 1fr); gap: 32px; }
+    .overview figure { max-width: 460px; margin: 0 auto; }
+  }
+
+  /* ---------- sections ---------- */
+  section { padding-top: 64px; scroll-margin-top: 64px; }
+  .sec-head { margin-bottom: 18px; }
+  h2 {
+    font-size: clamp(1.5rem, 2.7vw, 2rem); line-height: 1.2; letter-spacing: -0.018em;
+    font-weight: 700; margin: 8px 0 0; text-wrap: balance;
+  }
+  h3 { font-size: 1.05rem; line-height: 1.35; font-weight: 600; margin: 0 0 6px; letter-spacing: -0.005em; }
+  p { margin: 0 0 1em; }
+  .lead { font-size: 1.08rem; color: var(--ink-2); }
+  .abstract p { color: var(--ink); text-align: left; }
+
+  figure { margin: 30px 0; }
+  .plate {
+    display: block; background: var(--plate); border: 1px solid var(--plate-line);
+    border-radius: var(--radius); padding: clamp(10px, 2vw, 22px); box-shadow: var(--shadow);
+  }
+  .plate img { display: block; width: 100%; height: auto; }
+  .fig-plot .plate { max-width: 960px; margin-left: auto; margin-right: auto; }
+  @media (max-width: 640px) {
+    .fig-wide .plate { overflow-x: auto; overscroll-behavior-x: contain; }
+    .fig-wide .plate img { min-width: 640px; }
+    .fig-wide figcaption::before { content: "Swipe the figure sideways to see every panel."; display: block; font-size: 0.8rem; color: var(--ink-3); margin-bottom: 6px; }
+  }
+  figcaption { max-width: 760px; margin: 14px auto 0; font-size: 0.92rem; color: var(--ink-2); line-height: 1.55; }
+  figcaption b { color: var(--ink); font-weight: 600; }
+
+  .cards { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; margin-top: 26px; }
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 18px 18px 16px; }
+  .card p { font-size: 0.92rem; color: var(--ink-2); margin: 0; line-height: 1.55; }
+  .card .k { display: block; font-size: 0.74rem; font-weight: 700; letter-spacing: 0.07em; text-transform: uppercase; color: var(--ink-3); margin-bottom: 8px; }
+  @media (max-width: 960px) { .cards { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  @media (max-width: 560px) { .cards { grid-template-columns: minmax(0, 1fr); } }
+
+  .note {
+    background: var(--surface); border: 1px solid var(--line); border-left: 3px solid var(--accent);
+    border-radius: 12px; padding: 18px 22px; margin-top: 26px; margin-bottom: 26px;
+  }
+  .note h3 { margin-bottom: 8px; }
+  .note ul { margin: 0; padding-left: 1.1em; }
+  .note li { margin: 6px 0; color: var(--ink-2); font-size: 0.95rem; }
+  .note li strong { color: var(--ink); }
+
+  .checks { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin: 22px 0 8px; }
+  .check { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px; }
+  .check-top { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-bottom: 6px; }
+  .check-top h3 { margin: 0; }
+  .verdict {
+    flex: none; font-size: 0.72rem; font-weight: 600; padding: 3px 9px; border-radius: 999px;
+    border: 1px solid var(--line-strong); color: var(--ink-2); white-space: nowrap;
+  }
+  .check p { font-size: 0.92rem; color: var(--ink-2); margin: 0; line-height: 1.55; }
+  @media (max-width: 720px) { .checks { grid-template-columns: minmax(0, 1fr); } }
+
+  .table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); margin-top: 22px; }
+  table { border-collapse: collapse; width: 100%; font-size: 0.92rem; }
+  th, td { padding: 10px 14px; text-align: right; white-space: nowrap; border-bottom: 1px solid var(--line); }
+  th:first-child, td:first-child, th.l, td.l { text-align: left; }
+  thead th { font-weight: 600; font-size: 0.8rem; color: var(--ink-2); background: var(--surface-2); letter-spacing: 0.01em; }
+  tbody tr:last-child td { border-bottom: 0; }
+  td { font-variant-numeric: tabular-nums; }
+  td.muted { color: var(--ink-3); }
+  tr.win td { background: var(--window); }
+  .win-key { display: inline-block; width: 12px; height: 12px; border-radius: 3px; background: var(--window); border: 1px solid var(--line-strong); vertical-align: -1px; margin-right: 4px; }
+  .table-note { font-size: 0.86rem; color: var(--ink-3); margin: 10px 0 0; line-height: 1.5; }
+  .two-col { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 36px; align-items: start; }
+  @media (max-width: 900px) { .two-col { grid-template-columns: minmax(0, 1fr); gap: 8px; } }
+
+  details.more { margin-top: 18px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
+  details.more summary {
+    cursor: pointer; padding: 14px 18px; font-weight: 600; font-size: 0.95rem; list-style: none;
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  }
+  details.more summary::-webkit-details-marker { display: none; }
+  details.more summary::after { content: "+"; font-size: 1.2rem; font-weight: 500; color: var(--ink-3); }
+  details.more[open] summary::after { content: "\2212"; }
+  details.more .inner { padding: 0 18px 18px; }
+  details.more figure { margin: 4px 0 0; }
+
+  .code-card {
+    display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 18px 28px;
+    background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 24px 26px;
+    margin-top: 22px;
+  }
+  .code-card .repo { font-family: var(--mono); font-size: 0.92rem; font-weight: 500; overflow-wrap: anywhere; color: var(--ink); }
+  .code-card .status { display: inline-flex; align-items: center; gap: 8px; margin-top: 8px; font-size: 0.9rem; color: var(--ink-2); }
+  .code-card .status i { width: 8px; height: 8px; border-radius: 50%; background: var(--window-ink); display: inline-block; flex: none; }
+  .code-card .main { min-width: 0; flex: 1 1 360px; }
+
+  .bib { position: relative; margin-top: 22px; }
+  .bib pre {
+    margin: 0; padding: 20px 22px; overflow-x: auto;
+    background: var(--surface); border: 1px solid var(--line); border-radius: 12px;
+    font: 400 0.84rem/1.65 var(--mono); color: var(--ink);
+    white-space: pre-wrap; overflow-wrap: anywhere;
+  }
+  @media (min-width: 1000px) { .bib { margin-left: -80px; margin-right: -80px; } }
+  @media (max-width: 640px) { .bib pre { padding-top: 54px; } }
+  .copy-btn {
+    position: absolute; top: 10px; right: 10px;
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 6px 11px; border-radius: 8px; cursor: pointer;
+    border: 1px solid var(--line-strong); background: var(--surface-2); color: var(--ink-2);
+    font: 600 0.8rem var(--font);
+  }
+  .copy-btn:hover { color: var(--ink); }
+  .copy-btn svg { width: 14px; height: 14px; }
+
+  .related {
+    display: block; margin-top: 18px; padding: 18px 22px; border-radius: 12px;
+    background: var(--surface); border: 1px solid var(--line); text-decoration: none; color: var(--ink);
+  }
+  .related:hover { border-color: var(--line-strong); }
+  .related .t { font-weight: 600; line-height: 1.4; }
+  .related .a { font-size: 0.92rem; color: var(--ink-2); margin-top: 4px; }
+  .related .a b { color: var(--ink); font-weight: 600; }
+  .related .m { font-size: 0.88rem; color: var(--ink-3); margin-top: 4px; }
+
+  footer { margin-top: 96px; border-top: 1px solid var(--line); padding: 36px 0 56px; font-size: 0.84rem; color: var(--ink-3); line-height: 1.6; }
+  footer p { max-width: 860px; }
+  footer a { color: var(--ink-2); }
+  .authors a { color: inherit; text-decoration: none; border-bottom: 1px solid var(--line-strong); }
+  .authors a:hover { color: var(--accent); border-color: var(--accent); }
+  footer .ieee { color: var(--ink-2); }
+
+  /* ---------- this page ---------- */
+  .overview-wide { margin-top: 52px; }
+  .overview-wide figure { margin: 0; }
+  .overview-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); gap: 40px; align-items: start; margin-top: 36px; }
+  @media (max-width: 900px) { .overview-row { grid-template-columns: minmax(0, 1fr); gap: 24px; } }
+  .good { color: var(--good); font-weight: 600; }
+  .bad { color: var(--bad); font-weight: 600; }
+  td.best { font-weight: 700; color: var(--ink); }
+  tr.sub td { background: var(--surface-2); font-weight: 600; color: var(--ink-2); text-align: left; font-size: 0.82rem; letter-spacing: 0.01em; }
+  .fig-side { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 300px); gap: 36px; align-items: center; }
+  .fig-side figure { margin: 0; }
+  @media (max-width: 860px) { .fig-side { grid-template-columns: minmax(0, 1fr); } .fig-side figure { max-width: 340px; margin: 0 auto; } }
+  .tiers-key { display: flex; flex-wrap: wrap; gap: 8px 18px; margin: 14px 0 0; font-size: 0.9rem; color: var(--ink-2); }
+  td.pos, .pos { color: var(--good); font-weight: 600; }
+  td.best { font-weight: 700; }
+  th[rowspan], th[colspan] { vertical-align: bottom; }
+  th[colspan] { text-align: center; }
+
+  /* ---------- algorithm ---------- */
+  .algo { margin: 30px 0 0; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); padding: 18px 22px 16px; }
+  .algo .algo-title { margin: 0 0 10px; font-size: 0.95rem; color: var(--ink-2); }
+  .algo .algo-title b { color: var(--ink); }
+  .algo .phase { margin: 12px 0 4px; font-size: 0.9rem; font-weight: 600; color: var(--ink); }
+  .algo ol { margin: 0; padding-left: 2.4em; font-size: 0.9rem; line-height: 1.75; color: var(--ink-2); }
+  .algo li::marker { color: var(--ink-3); font-size: 0.82rem; }
+  .algo .cm { color: var(--ink-3); font-size: 0.84rem; }
+  .algo .cm::before { content: "▷ "; }
+  .algo .ind { padding-left: 1.4em; }
+</style>
+</head>
+
+<body id="top">
+
+<header class="topbar">
+  <div class="topbar-inner">
+    <a class="brand" href="#top">Disentangling the Good From the Bad: Quantization-Induced Flips Are Not Random</a>
+    <nav class="nav" aria-label="Sections">
+      <a href="#abstract">Abstract</a>
+      <a href="#flips">Flips</a>
+      <a href="#method">Method</a>
+      <a href="#disentanglement">Disentanglement</a>
+      <a href="#repair">Repair</a>
+      <a href="#deployment">Deployment</a>
+      <a href="#ablations">Ablations</a>
+      <a href="#code">Code</a>
+      <a href="#citation">Citation</a>
+    </nav>
+    <a class="home-btn" href="https://aymenbouguerra.github.io/" title="Aymen Bouguerra: all projects"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg><span>Aymen Bouguerra</span></a>
+    <button class="theme-btn" id="theme-btn" type="button" aria-label="Toggle dark mode" title="Toggle dark mode">
+      <svg class="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
+      <svg class="moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+    </button>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <!-- ===================== HERO ===================== -->
+  <div class="hero">
+    <span class="venue"><i aria-hidden="true"></i>NeurIPS 2026 (A*) · Main Conference Paper</span>
+    <p class="venue-full">Advances in Neural Information Processing Systems</p>
+    <h1>Disentangling the Good From the Bad:<br class="br-wide"> Quantization&#8209;Induced Flips Are Not Random</h1>
+    <ul class="authors" aria-label="Authors">
+      <li><a href="https://aymenbouguerra.github.io/">Aymen Bouguerra</a><sup>1</sup></li>
+      <li>Fabio Arnez<sup>1</sup></li>
+      <li>Alexandra Gomez-Villa<sup>2,3</sup></li>
+      <li>Chokri Mraidha<sup>1</sup></li>
+    </ul>
+    <p class="affil"><sup>1</sup>Université Paris-Saclay, CEA-List &nbsp;·&nbsp; <sup>2</sup>Computer Vision Center, Spain &nbsp;·&nbsp; <sup>3</sup>Universitat Autònoma de Barcelona</p>
+
+    <div class="actions">
+      <span class="btn" aria-disabled="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h5"/></svg>
+        Paper <span class="tag">coming soon</span>
+      </span>
+      <a class="btn btn-primary" href="https://github.com/CEA-LIST/Disentangling-the-Good-From-the-Bad-Quantization-Induced-Flips-Are-Not-Random" target="_blank" rel="noopener noreferrer">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m16 18 6-6-6-6M8 6l-6 6 6 6"/></svg>
+        Code <span class="tag">CEA-List</span>
+      </a>
+      <a class="btn" href="#citation">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 3H7a2 2 0 0 0-2 2v5a2 2 0 0 1-2 2 2 2 0 0 1 2 2v5c0 1.1.9 2 2 2h1M16 21h1a2 2 0 0 0 2-2v-5c0-1.1.9-2 2-2a2 2 0 0 1-2-2V5a2 2 0 0 0-2-2h-1"/></svg>
+        BibTeX
+      </a>
+    </div>
+  </div>
+
+  <!-- ===================== OVERVIEW ===================== -->
+  <div class="overview-wide" id="overview">
+    <figure class="fig-wide">
+      <a class="plate" href="assets/teaser.jpg" target="_blank" rel="noopener noreferrer">
+        <img src="assets/teaser.jpg" width="2400" height="791"
+             alt="Three panels on pooled CLIP-B/16 W8A8 QAT flips. (A) Densities of the quantized top-1 margin for good and bad flips overlap. (B) Share of flips by the SVD rank at which the quantized prediction emerges: good flips peak at low ranks (median 24), bad flips rise in the high-rank tail (median 48). (C) A confidence score against a spectral score: the two populations form largely separate clouds.">
+      </a>
+      <figcaption><b>Quantization flips are not random</b> (pooled CLIP-B/16, W8A8 QAT, 8 datasets, 13,205 flips). <b>(A)</b> The quantized softmax margin used by prior work overlaps for <span class="good">good</span> (IC) and <span class="bad">bad</span> (CI) flips. <b>(B)</b> Along the SVD rank of the quantized model's own feature space, good flips emerge at low ranks and bad flips need the high-rank tail. <b>(C)</b> A confidence score and a spectral score together largely disentangle the two populations.</figcaption>
+    </figure>
+
+    <div class="overview-row">
+      <div class="tldr">
+        <span class="label">TL;DR</span>
+        <p>A quantized model that matches its full-precision baseline in accuracy still changes many of its predictions. These flips are not rounding noise: <span class="good">good flips</span> (incorrect&nbsp;→&nbsp;correct) and <span class="bad">bad flips</span> (correct&nbsp;→&nbsp;incorrect) live in different parts of the quantized model's SVD spectrum. A post-hoc gate that reads them can keep the good flips and repair the bad ones, recovering accuracy at a cost of microseconds per input.</p>
+      </div>
+      <div class="stats">
+        <div class="stat">
+          <div class="stat-value">0.881</div>
+          <div class="stat-label">Dis AUC on 50 CLIP cells</div>
+          <div class="stat-note">T3; 0.775 from the quantized model alone (T1)</div>
+        </div>
+        <div class="stat">
+          <div class="stat-value">+1.97 pp</div>
+          <div class="stat-label">Accuracy gain, quantized model alone</div>
+          <div class="stat-note">T1 on the 50 CLIP cells; +0.86 pp above full precision</div>
+        </div>
+        <div class="stat">
+          <div class="stat-value">+3.42 pp</div>
+          <div class="stat-label">Above full precision after a −2.88 pp drop</div>
+          <div class="stat-note">T3, TensorRT INT8, CLIP-L/14 / GTSRB</div>
+        </div>
+        <div class="stat">
+          <div class="stat-value">0.045%</div>
+          <div class="stat-label">Gate compute vs a quantized forward</div>
+          <div class="stat-note">T1, mean over the 50 CLIP cells; no second model in memory</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== ABSTRACT ===================== -->
+  <section id="abstract" class="prose abstract">
+    <div class="sec-head">
+      <span class="label">Abstract</span>
+    </div>
+    <p>Model quantization has advanced tremendously in recent years, producing models that require a fraction of the compute while maintaining baseline accuracy and creating the illusion of lossless compression. Beneath the surface, however, model behavior undergoes severe shifts that simple global accuracy fails to capture. Notably, quantized models experience a high rate of “flips”: individual predictions that change from correct to incorrect (bad flips-CI) and vice versa (good flips-IC). Although overall accuracy remains stable, these changes degrade model reliability and introduce unforeseen safety risks. Current literature attributes these flips to random rounding noise, a perspective that ignores the specific precision constraints imposed by quantization with or without training.</p>
+    <p>In this paper, we show that flips are driven by quantization's implicit regularization, low-pass filtering, and exacerbated spectral bias. By analyzing these effects via Singular Value Decomposition (SVD), we leverage the model's low-to-high rank internal disagreement to disentangle good flips from bad ones. Building on this insight, we introduce learned post-hoc gates, with or without the full-precision model, to selectively preserve the former while correcting the latter, and we validate our disentanglement through experiments spanning Post-Training Quantization (PTQ) to Quantization-Aware Training (QAT) and across vision, language, and multi-modal models. With this work, we aim not only to restore the quantized model's hidden reliability degradation but also to elevate it beyond the accuracy ceiling of its full-precision counterpart.</p>
+  </section>
+
+  <!-- ===================== FLIPS ===================== -->
+  <section id="flips">
+    <div class="prose sec-head">
+      <span class="label">The problem</span>
+      <h2>Matched accuracy still changes many predictions</h2>
+    </div>
+    <div class="fig-side">
+      <div>
+        <p>When a quantized model matches its baseline's top-1 accuracy, the two are treated as equivalent. They are not: at matched accuracy, the quantized model still disagrees with its baseline on a share of inputs. Good and bad flips are roughly symmetric in count, which is exactly why the aggregate accuracy gap looks small or even null.</p>
+        <p>The quantized model's own confidence does not tell them apart: their densities overlap across the whole confidence range. Without a per-input criterion, a deployed model cannot flag the bad flips that matter, such as a missed pedestrian or a corrupted instruction.</p>
+        <p>The spectral account explains the asymmetry. Rounding error concentrates in the high-rank, low-variance directions of the representation, which carry fine within-class cues. A <span class="good">good flip</span> is an input where the baseline followed a misleading high-rank cue that quantization removed; a <span class="bad">bad flip</span> is one whose correct evidence lived in that tail and was crushed by rounding.</p>
+      </div>
+      <figure>
+        <a class="plate" href="assets/flips.png" target="_blank" rel="noopener noreferrer">
+          <img src="assets/flips.png" width="917" height="1144" loading="lazy" decoding="async"
+               alt="Bar chart of good and bad flip counts per dataset at matched accuracy, for vision, text and text-vision models; bar length is the flip share of the evaluation set, from about 3 to 18 percent, and each bar is labelled with its flip count.">
+        </a>
+        <figcaption>Good (IC) and bad (CI) flips at matched accuracy across vision, text and text-vision models. Bar length: flip share of the evaluation set; labels: flip counts.</figcaption>
+      </figure>
+    </div>
+    <figure class="fig-wide" style="max-width: 620px; margin-left: auto; margin-right: auto;">
+      <a class="plate" href="assets/spectrum.png" target="_blank" rel="noopener noreferrer">
+        <img src="assets/spectrum.png" width="823" height="657" loading="lazy" decoding="async"
+             alt="Bar chart of the signed energy change per rank range of the full-precision basis under quantization, against isotropic noise of equal drift energy: quantization removes energy from the leading ranks and adds far less to the high-rank tail than noise does.">
+      </a>
+      <figcaption><b>Quantization is not isotropic noise.</b> Signed energy change per rank range of <i>V<sub>b</sub></i> (share of total; CLIP-B/16 W8A8 PTQ, CIFAR-10) vs isotropic noise of equal drift energy. Ranks 1–7 lose 8.9%; ranks 128–511 gain 9.0% (noise: 41.5%), yet drift there is 1.5× their own energy.</figcaption>
+    </figure>
+  </section>
+
+  <!-- ===================== METHOD ===================== -->
+  <section id="method">
+    <div class="prose sec-head">
+      <span class="label">Method</span>
+      <h2>Read where each prediction emerges, then gate</h2>
+    </div>
+    <div class="prose">
+      <p>The active basis <i>V<sub>q</sub></i> is the SVD of the quantized model's own features, fitted without labels and without the full-precision model. For each input, rank-<i>K</i> reconstructions of its feature are pushed through the classifier head on a grid of ranks: the readouts trace, rank by rank, where the quantized prediction emerges. Together with the softmax statistics they form the feature set of two gradient-boosted heads (a flip, and a bad one), fitted once with labels on a calibration pool. The deployed gate multiplies their scores, flags the inputs most likely to be bad flips and repairs only those.</p>
+    </div>
+    <figure class="fig-wide">
+      <a class="plate" href="assets/schematic.png" target="_blank" rel="noopener noreferrer">
+        <img src="assets/schematic.png" width="1790" height="551" loading="lazy" decoding="async"
+             alt="Three-panel schematic. (a) Along the principal directions, rounding error overtakes the variance in the low-variance tail while the leading directions keep the class-level evidence. (b) Probability of the quantized prediction against the rank K of the reconstruction: a good flip emerges early and stays, a bad flip emerges only in the high-rank tail. (c) The gate keeps inputs scored as good flips or non-flips and repairs likely bad flips.">
+      </a>
+      <figcaption><b>Why good and bad flips separate by rank</b> (schematic). <b>(a)</b> Rounding adds a noise component and a precision-grid constraint; along the principal directions, its error overtakes the variance in the low-variance tail, where fine within-class cues live, while the leading directions keep the class-level evidence. <b>(b)</b> A good flip is carried by the leading directions, so <i>ŷ<sub>q</sub></i> becomes and stays the argmax of the rank-<i>K</i> reconstruction at a low <i>K</i>; a bad flip is decided in the drowned tail and emerges only at high <i>K</i>. <b>(c)</b> The gate reads this rank trace from <i>M<sub>q</sub></i> alone, keeps inputs scored as good flips or non-flips, and repairs likely bad flips with the second-best class of <i>p<sub>q</sub></i> (T1/T2) or <i>ŷ<sub>b</sub></i> (T3).</figcaption>
+    </figure>
+    <figure class="fig-wide">
+      <a class="plate" href="assets/method.png" target="_blank" rel="noopener noreferrer">
+        <img src="assets/method.png" width="2307" height="1303" loading="lazy" decoding="async"
+             alt="Method overview. (A) The full-precision and the quantized model produce features and predictions; joint correctness defines the outcomes C, CI, IC and I/II; the active basis is the SVD of the quantized features, read on a rank-K grid. (B) Three deployment tiers: T1 uses the quantized model only and repairs flagged inputs with the second-best class; T2 adds a cached full-precision basis to the features; T3 runs the full-precision model on the flagged inputs.">
+      </a>
+      <figcaption><b>Method overview.</b> <b>(A)</b> Notation: <i>M<sub>b</sub></i> (full precision) and <i>M<sub>q</sub></i> (quantized) produce features and predictions; joint correctness defines the outcome, and IC and CI are the flips. <b>(B)</b> Three tiers that differ only in what they may query of <i>M<sub>b</sub></i> at inference: T1 and T2 never run it, T3 does.</figcaption>
+    </figure>
+    <div class="prose">
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Configuration</th><th class="l">Gate features</th><th class="l">Repair of flagged inputs</th><th><i>M<sub>b</sub></i> forwards / input</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>T1</td><td class="l"><i>M<sub>q</sub></i> only (<i>V<sub>q</sub></i> readouts, <i>p<sub>q</sub></i>)</td><td class="l">second-best class of <i>p<sub>q</sub></i></td><td>0</td></tr>
+            <tr><td>T2</td><td class="l">T1 + cached <i>V<sub>b</sub></i></td><td class="l">second-best class of <i>p<sub>q</sub></i></td><td>0</td></tr>
+            <tr><td>T3</td><td class="l">T1/T2 gate, then live <i>M<sub>b</sub></i> on its top-<i>r</i>%</td><td class="l"><i>ŷ<sub>b</sub></i> (T3 head) or T1/T2's</td><td><i>r</i></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="table-note"><i>r</i>: flag rate. The second-best class of <i>p<sub>q</sub></i> equals the label for about three quarters of bad flips and essentially no good flips, so a flagged input can be repaired without a full-precision pass. The T1 / T2 gate adds 0.045–0.053% of a quantized forward in compute (mean over the 50 CLIP cells); T1 uses the quantized model only.</p>
+      <div class="algo">
+        <p class="algo-title"><b>Algorithm 1</b> The deployed gate. <i>B</i><sub>T1/T2/T3</sub>: the tiers' feature sets; T1 and T2 never run <i>M<sub>b</sub></i>. In the reported gains, <i>P</i> is the evaluated set, scored out-of-fold (5 folds), and T2 keeps the better of the T1 and T2 gates.</p>
+        <p class="phase">Calibration (once, on a labelled set <i>P</i>)</p>
+        <ol start="1">
+          <li>Run <i>M<sub>q</sub></i> and <i>M<sub>b</sub></i> on <i>P</i>; <i>V<sub>q</sub></i> ← SVD of the centred <i>F<sub>q</sub></i>; cache (<i>μ<sub>b</sub></i>, <i>V<sub>b</sub></i>) from <i>F<sub>b</sub></i></li>
+          <li>For each tier set <i>B</i><sub>T1</sub>, <i>B</i><sub>T2</sub>, <i>B</i><sub>T3</sub>: fit <i>ρ</i><sub>det</sub> (HGB on <b>1</b>[<i>ŷ<sub>q</sub></i> ≠ <i>ŷ<sub>b</sub></i>], all of <i>P</i>), <i>ρ</i><sub>dis</sub> (HGB on <b>1</b>[CI], flipped inputs of <i>P</i>), and <i>ρ</i><sub>CI</sub> ← <i>ρ</i><sub>det</sub> · <i>ρ</i><sub>dis</sub>; T3's is <i>ρ</i><sub>CI</sub><sup>T3</sup></li>
+          <li>Pick the repair rate <i>r<sub>q</sub></i>, then <i>k</i>, by accuracy gain on <i>P</i>; <i>τ</i>, <i>τ<sub>b</sub></i> ← (1 − <i>r<sub>q</sub></i>)- and (1 − <i>r</i>)-quantiles of <i>ρ</i><sub>CI</sub> (<i>r</i>: <i>M<sub>b</sub></i> rate of T3); <i>τ</i><sub>3</sub> ← (1 − <i>k</i>)-quantile of <i>ρ</i><sub>CI</sub><sup>T3</sup> over the inputs with <i>ρ</i><sub>CI</sub> ≥ <i>τ<sub>b</sub></i></li>
+        </ol>
+        <p class="phase">Inference (per input <i>x</i>)</p>
+        <ol start="4">
+          <li><i>ŷ<sub>q</sub></i>, <i>p<sub>q</sub></i>, <i>f<sub>q</sub></i> ← <i>M<sub>q</sub></i>(<i>x</i>); <i>z</i> ← <i>B</i><sub>T1</sub>(<i>f<sub>q</sub></i>, <i>p<sub>q</sub></i>, <i>V<sub>q</sub></i>) or <i>B</i><sub>T2</sub>(<i>f<sub>q</sub></i>, <i>p<sub>q</sub></i>, <i>V<sub>q</sub></i>, <i>μ<sub>b</sub></i>, <i>V<sub>b</sub></i>)</li>
+          <li><i>ỹ</i> ← <i>ŷ<sub>q</sub></i> <span class="cm">not flagged: output untouched</span></li>
+          <li><b>if</b> <i>ρ</i><sub>CI</sub>(<i>z</i>) ≥ <i>τ</i>: <i>ỹ</i> ← second-best class of <i>p<sub>q</sub></i> <span class="cm">T1, T2: <i>M<sub>q</sub></i> only</span></li>
+          <li><b>T3:</b> <b>if</b> <i>ρ</i><sub>CI</sub>(<i>z</i>) ≥ <i>τ<sub>b</sub></i>: run <i>M<sub>b</sub></i>(<i>x</i>) <span class="cm"><i>M<sub>b</sub></i> on <i>r</i> of the inputs</span></li>
+          <li class="ind"><b>if</b> <i>ρ</i><sub>CI</sub><sup>T3</sup>(<i>B</i><sub>T3</sub>(<i>x</i>)) ≥ <i>τ</i><sub>3</sub>: <i>ỹ</i> ← <i>ŷ<sub>b</sub></i> <span class="cm">else <i>ỹ</i> is kept</span></li>
+          <li><b>return</b> <i>ỹ</i></li>
+        </ol>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== DISENTANGLEMENT ===================== -->
+  <section id="disentanglement">
+    <div class="prose sec-head">
+      <span class="label">Disentanglement</span>
+      <h2>The signal holds across 50 CLIP cells and four more families</h2>
+    </div>
+    <div class="prose">
+      <p>Dis AUC is the ROC-AUC separating good from bad flips among the flipped inputs. On five CLIP backbones × ten datasets at matched-accuracy W8A8, T3 sits between 0.87 and 0.89 for every backbone. T3 is the best tier on every family tested, and T2 adds nearly nothing beyond T1: the cached full-precision directions are the same for every input, so fresh per-sample evidence arrives only through a full-precision forward pass.</p>
+    </div>
+    <figure class="fig-plot fig-wide">
+      <a class="plate" href="assets/grid_tiers.svg" target="_blank" rel="noopener noreferrer">
+        <img src="assets/grid_tiers.svg" width="991" height="359" loading="lazy" decoding="async"
+             alt="Box plot of disentanglement AUC per CLIP backbone and tier over ten datasets: T1 means from 0.762 to 0.785, T2 about equal, T3 from 0.873 to 0.889.">
+      </a>
+      <figcaption><b>Disentanglement AUC per CLIP backbone</b> (W8A8 QAT, ten datasets each; extended feature set). Pooled means: T1 0.775, T2 0.776, T3 0.881.</figcaption>
+    </figure>
+    <div class="two-col">
+      <div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Family</th><th>#</th><th>T1</th><th>T2</th><th>T3</th></tr></thead>
+            <tbody>
+              <tr><td>VLMs (5 × CLIP)</td><td>50</td><td>0.775</td><td>0.776</td><td>0.881</td></tr>
+              <tr><td>Generative VLMs</td><td>2</td><td>0.749</td><td>0.745</td><td>0.751</td></tr>
+              <tr><td>ViT-B/16</td><td>3</td><td>0.802</td><td>0.802</td><td>0.828</td></tr>
+              <tr><td>CNN ResNet-50</td><td>3</td><td>0.683</td><td>0.692</td><td>0.707</td></tr>
+              <tr><td>LLMs</td><td>3</td><td>0.676</td><td>0.687</td><td>0.702</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="table-note">Family-averaged Dis AUC; # = number of (model, dataset) cells.</p>
+      </div>
+      <div>
+        <h3 style="margin-top: 22px;">Detection comes first</h3>
+        <p style="color: var(--ink-2); font-size: 0.97rem;">Deployment also needs to find the flips against a low base rate (8.7% of 47,636 inputs). The <i>M<sub>q</sub></i>-only gate reaches PR-AUC 0.535, 6.1× the prior, at under 0.1% overhead; spending a full-precision pass on the top 10% flagged inputs lifts it to 0.851, and the top 20% to 0.958.</p>
+      </div>
+    </div>
+    <div class="prose">
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Tier</th><th>Overhead vs <i>M<sub>q</sub></i></th><th>PR-AUC</th><th>ROC-AUC</th><th>Recall at <i>P</i> = 50%</th><th>Recall at <i>P</i> = 60%</th></tr></thead>
+          <tbody>
+            <tr><td>T1 (<i>M<sub>q</sub></i> only)</td><td>&lt; 0.1%</td><td>0.535</td><td>0.936</td><td>63.3%</td><td>34.3%</td></tr>
+            <tr><td>T2 (+ cached <i>V<sub>b</sub></i>)</td><td>&lt; 0.1%</td><td>0.567</td><td>0.940</td><td>67.3%</td><td>42.0%</td></tr>
+            <tr class="sub"><td colspan="6">T3 (<i>M<sub>b</sub></i> on the top-<i>r</i>% flagged), varying the flag rate</td></tr>
+            <tr><td><i>r</i> = 1%</td><td>+1.0%</td><td>0.609</td><td>0.942</td><td>69.2%</td><td>46.8%</td></tr>
+            <tr><td><i>r</i> = 5%</td><td>+5.0%</td><td>0.744</td><td>0.956</td><td>79.7%</td><td>66.8%</td></tr>
+            <tr><td><i>r</i> = 10%</td><td>+10.0%</td><td>0.851</td><td>0.972</td><td>88.8%</td><td>81.7%</td></tr>
+            <tr><td><b><i>r</i> = 20%</b></td><td>+20.0%</td><td class="best">0.958</td><td class="best">0.991</td><td class="best">96.6%</td><td class="best">94.9%</td></tr>
+            <tr><td><i>r</i> = 50%</td><td>+50.0%</td><td>0.998</td><td>0.999</td><td>99.7%</td><td>99.7%</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="table-note">Flip detection on the CLIP B/16 + B/32 CC3M-QAT set (<i>N</i> = 47,636, flip prior 0.087, 5-fold CV, mean of five QAT runs).</p>
+    </div>
+
+    <div class="prose" style="margin-top: 36px;">
+      <h3>Class density caps T1, softly</h3>
+      <p style="color: var(--ink-2); font-size: 0.97rem;">Low-class datasets (EuroSAT, GTSRB, FashionMNIST, SVHN) form a bright band at 0.76–0.98, while ImageNet-1k caps T1 at 0.59–0.62: with 1,000 classes in a fixed feature space, quantized-model-only features can no longer tell which low-rank reconstruction matches which class. A live <i>M<sub>b</sub></i> pass on flagged inputs (T3) lifts ImageNet-1k from 0.60 to 0.79, and tighter precision lifts it too, to 0.829 / 0.847 at W4A4 (ResNet-50 / ViT-B/16).</p>
+    </div>
+    <figure class="fig-plot">
+      <a class="plate" href="assets/heatmap_t1.svg" target="_blank" rel="noopener noreferrer" style="max-width: 820px;">
+        <img src="assets/heatmap_t1.svg" width="398" height="152" loading="lazy" decoding="async"
+             alt="Heatmap of T1 Dis AUC for five CLIP backbones by ten datasets at W8A8: values from 0.83 to 0.98 on EuroSAT, GTSRB and FashionMNIST, falling to 0.59 to 0.62 on ImageNet-1k.">
+      </a>
+      <figcaption><b>T1 Dis AUC</b>, five CLIP backbones × ten datasets, W8A8; rows and columns sorted by mean.</figcaption>
+    </figure>
+    <div class="prose">
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Backbone</th><th>T1 W8A8</th><th>T3 W8A8</th><th>T1 W6A8</th><th>T3 W6A8</th></tr>
+          </thead>
+          <tbody>
+<tr><td>CLIP-B/32 WIT</td><td>0.779</td><td>0.873</td><td>0.761</td><td>0.879</td></tr>
+<tr><td>CLIP-B/16 WIT</td><td>0.762</td><td>0.876</td><td>0.770</td><td>0.883</td></tr>
+<tr><td>CLIP-L/14 WIT</td><td>0.785</td><td>0.881</td><td>0.769</td><td>0.879</td></tr>
+<tr><td>CLIP-L/14 LAION-2B</td><td>0.767</td><td>0.889</td><td>0.772</td><td>0.884</td></tr>
+<tr><td>DFN-B/16</td><td>0.779</td><td>0.886</td><td>0.766</td><td>0.882</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="table-note">Mean Dis AUC over the ten datasets of each backbone (extended feature set).</p>
+    </div>
+  </section>
+
+  <!-- ===================== REPAIR ===================== -->
+  <section id="repair">
+    <div class="prose sec-head">
+      <span class="label">Repair</span>
+      <h2>Keep the good flips, repair the bad ones</h2>
+    </div>
+    <div class="prose">
+      <p>Two heads flag the inputs most likely to be bad flips (a flip, and a bad one); each tier repairs them from its cheapest source. On the 50 CLIP cells (5 backbones × 10 datasets, W8A8 light QAT), T1 gains +1.97 pp with the quantized model alone and ends +0.86 pp above full precision. T3 runs the full-precision model only on the flagged inputs and climbs with that budget.</p>
+    </div>
+    <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th></th><th>T1</th><th>T2</th><th>T3 <i>r</i>=1%</th><th>T3 <i>r</i>=5%</th><th>T3 <i>r</i>=10%</th><th>T3 <i>r</i>=17%</th><th>T3 <i>r</i>=20%</th><th>T3 <i>r</i>=50%</th><th>T3 <i>r</i>=70%</th><th>Oracle</th></tr>
+            <tr><th class="l">Repair</th><td>2nd-best</td><td>2nd-best</td><td colspan="7" style="text-align: center;"><i>ŷ<sub>b</sub></i> where the T3 head picks, else T2's repair</td><td><i>ŷ<sub>b</sub></i></td></tr>
+          </thead>
+          <tbody>
+            <tr class="sub"><td colspan="11">Top-1 accuracy gain (pp)</td></tr>
+            <tr><td>above the quantized model</td><td>+1.97</td><td>+2.03</td><td>+2.11</td><td>+2.44</td><td>+2.77</td><td>+3.10</td><td>+3.19</td><td>+3.70</td><td>+3.74</td><td>+4.83</td></tr>
+            <tr><td>above the base model (FP)</td><td>+0.86</td><td>+0.92</td><td>+1.01</td><td>+1.33</td><td>+1.66</td><td>+1.99</td><td>+2.08</td><td>+2.59</td><td>+2.64</td><td>+3.72</td></tr>
+            <tr><td>Compute overhead (% of <i>M<sub>q</sub></i>)</td><td>0.045</td><td>0.053</td><td>1</td><td>5</td><td>10</td><td>17</td><td>20</td><td>50</td><td>70</td><td>4.8</td></tr>
+          </tbody>
+        </table>
+    </div>
+    <div class="prose">
+      <p class="table-note">Mean over the 50 cells. T1 / T2 never run the full-precision model; T3 runs it only on the <i>r</i>% of inputs the T1/T2 gate flags. Each gain takes the best flag rate on the evaluated cells, an upper estimate for a deployment that fixes <i>r</i> in advance. Compute overhead: FLOPs as a percentage of one quantized forward; for T1 / T2, the feature set and both heads (at most 0.57%, on B/32 ImageNet-1k).</p>
+    </div>
+
+  </section>
+
+  <!-- ===================== DEPLOYMENT ===================== -->
+  <section id="deployment">
+    <div class="prose sec-head">
+      <span class="label">Deployment</span>
+      <h2>Every production quantizer gains</h2>
+    </div>
+    <div class="prose">
+      <p>The pipeline on production quantizers: GPTQ, SmoothQuant, AWQ and the stock recipes of NVIDIA TensorRT Model Optimizer for zero-shot CLIP on GTSRB, plus quantized LLMs and VLMs (QAT, bitsandbytes-INT8, TensorRT). With a 2–5 pp drop, T1 recovers 2.9–3.6 pp and T3, which runs the full-precision model on 20% of the inputs, 5.2–6.3 pp, ending up to 3.4 pp above full precision.</p>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th rowspan="2">Model</th><th rowspan="2" class="l">Data / Quant</th><th rowspan="2">Quant. loss Δ (pp)</th><th colspan="2">Flips after (before)</th><th rowspan="2">PR-AUC (random)</th><th colspan="2">Dis AUC</th><th colspan="2">Gain (pp)</th></tr>
+          <tr><th>Good</th><th>Bad</th><th>T1</th><th>T3</th><th>T1</th><th>T3</th></tr>
+        </thead>
+        <tbody>
+<tr class="sub"><td colspan="10">(a) Little or no damage on CLIP / GTSRB (|Δ| < 1 pp)</td></tr>
+<tr><td>CLIP-B/32</td><td class="l">GPTQ W8A8</td><td>+0.07</td><td>406 (459)</td><td>210 (450)</td><td>0.638 (0.228)</td><td>0.768</td><td>0.896</td><td><span class="pos">+2.28</span></td><td><span class="pos">+2.79</span></td></tr>
+<tr><td>CLIP-B/32</td><td class="l">TRT INT4-AWQ</td><td>−0.32</td><td>321 (337)</td><td>191 (350)</td><td>0.872 (0.530)</td><td>0.750</td><td>0.917</td><td><span class="pos">+1.57</span></td><td><span class="pos">+3.93</span></td></tr>
+<tr><td>CLIP-B/32</td><td class="l">TRT INT8-SQ</td><td>−0.02</td><td>149 (171)</td><td>94 (172)</td><td>0.718 (0.276)</td><td>0.694</td><td>0.828</td><td><span class="pos">+1.57</span></td><td><span class="pos">+2.22</span></td></tr>
+<tr><td>CLIP-B/32</td><td class="l">SmoothQ W8A8</td><td>+0.02</td><td>231 (298)</td><td>140 (296)</td><td>0.543 (0.152)</td><td>0.754</td><td>0.856</td><td><span class="pos">+1.43</span></td><td><span class="pos">+1.97</span></td></tr>
+<tr><td>CLIP-B/32</td><td class="l">AWQ W8</td><td>−0.02</td><td>212 (252)</td><td>124 (254)</td><td>0.518 (0.127)</td><td>0.764</td><td>0.851</td><td><span class="pos">+1.36</span></td><td><span class="pos">+1.62</span></td></tr>
+<tr class="sub"><td colspan="10">(b) CLIP / GTSRB deployment with a 2–5 pp drop</td></tr>
+<tr><td>CLIP-L/14</td><td class="l">TRT INT4-WO</td><td>−4.10</td><td>142 (182)</td><td>151 (346)</td><td>0.693 (0.325)</td><td>0.737</td><td>0.908</td><td>+3.58</td><td><span class="pos">+5.25</span></td></tr>
+<tr><td>CLIP-L/14</td><td class="l">TRT INT8</td><td>−2.88</td><td>340 (361)</td><td>217 (476)</td><td>0.820 (0.472)</td><td>0.760</td><td>0.940</td><td><span class="pos">+3.48</span></td><td><span class="pos">+6.30</span></td></tr>
+<tr><td>CLIP-B/32</td><td class="l">AWQ W6</td><td>−2.94</td><td>637 (754)</td><td>441 (1,125)</td><td>0.854 (0.474)</td><td>0.788</td><td>0.941</td><td>+2.86</td><td><span class="pos">+5.57</span></td></tr>
+<tr class="sub"><td colspan="10">(c) Cross-architecture deployment</td></tr>
+<tr><td>LLaVA-1.5-7B</td><td class="l">EuroSAT / bnb-INT8</td><td>−3.72</td><td>271 (326)</td><td>70 (1,069)</td><td>0.703 (0.135)</td><td>0.939</td><td>0.971</td><td><span class="pos">+4.41</span></td><td><span class="pos">+4.83</span></td></tr>
+<tr><td>Qwen2.5-1.5B</td><td class="l">AG News / W8A8 QAT</td><td>−2.07</td><td>221 (253)</td><td>25 (667)</td><td>0.643 (0.050)</td><td>0.960</td><td>0.965</td><td><span class="pos">+3.04</span></td><td><span class="pos">+3.08</span></td></tr>
+<tr><td>Qwen2-VL-2B</td><td class="l">CIFAR-10 / TRT INT8</td><td>−4.53</td><td>6 (57)</td><td>5 (510)</td><td>0.880 (0.067)</td><td>0.779</td><td>0.911</td><td>+2.93</td><td><span class="pos">+4.59</span></td></tr>
+<tr><td>Qwen2.5-VL-3B</td><td class="l">EuroSAT / bnb-INT8</td><td>−2.68</td><td>142 (179)</td><td>90 (715)</td><td>0.736 (0.096)</td><td>0.870</td><td>0.936</td><td>+2.52</td><td><span class="pos">+2.95</span></td></tr>
+<tr><td>Qwen2.5-VL-3B</td><td class="l">EuroSAT / W8A8 QAT</td><td>−2.40</td><td>104 (129)</td><td>90 (610)</td><td>0.696 (0.083)</td><td>0.858</td><td>0.929</td><td>+2.28</td><td><span class="pos">+2.48</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="prose">
+      <p class="table-note">Δ: quantized minus full-precision accuracy; <span class="pos">green</span>: the pipeline ends above the full-precision model. T1: quantized model only, flagged inputs repaired with the second-best class. T3: T1, plus the full-precision model on the 20% of inputs the T1 gate scores highest. LLaVA and Qwen2.5 rows: only the gain on flipped inputs is counted. All gains are significant (p &lt; 5×10<sup>−4</sup>, bootstrap). TRT: NVIDIA TensorRT Model Optimizer stock recipe (simulated quantization; SQ: SmoothQuant, WO: weight-only).</p>
+    </div>
+  </section>
+
+  <!-- ===================== ABLATIONS ===================== -->
+  <section id="ablations">
+    <div class="prose sec-head">
+      <span class="label">Ablations</span>
+      <h2>Spectral, not confidence; quantization, not generic noise</h2>
+    </div>
+    <div class="prose">
+      <p>The spectral account makes falsifiable predictions, and each is tested: the spectral features must beat the quantized softmax confidence; the raw features must not explain it away; quantization drift must be more separable than matched-accuracy noise; and tighter precision must sharpen the asymmetry.</p>
+    </div>
+    <div class="two-col">
+      <div>
+        <h3 style="margin-top: 22px;">Confidence vs raw features vs spectral feature set</h3>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Features</th><th>4 PTQ cells</th><th>CLIP grid (50 cells)</th></tr></thead>
+            <tbody>
+              <tr><td>Confidence</td><td>0.614 ± .011</td><td>0.603 ± .048</td></tr>
+              <tr><td>Raw <i>f<sub>q</sub></i></td><td>0.742 ± .011</td><td>0.703 ± .119</td></tr>
+              <tr><td>Spectral</td><td class="best">0.807 ± .009</td><td class="best">0.747 ± .133</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="table-note">4 PTQ cells: CLIP-B/16, W8A8 PTQ; the same HGB head on each feature set, mean of EuroSAT, GTSRB, SVHN and FashionMNIST, ± seed sd over 10 seeds; Spectral: the rank-K spectral feature set alone. CLIP grid: the 50 W8A8 cells with the grid's T1 scorer; confidence is the top-1 probability and margin of <i>p<sub>q</sub></i>, which the raw and spectral sets extend; mean ± sd over cells, spectral above raw on 39 of the 50. The SVD adds no information: it re-expresses <i>f<sub>q</sub></i> along the model's own principal directions.</p>
+      </div>
+      <div>
+        <h3 style="margin-top: 22px;">Quantization is not generic noise</h3>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Cell</th><th>QAT</th><th>PTQ</th><th>DropBlock</th><th>Gauss.</th><th>Dropout</th></tr></thead>
+            <tbody>
+              <tr><td>R-50 / GTSRB</td><td class="best">.949</td><td>.772</td><td>.500</td><td>.795</td><td>.579</td></tr>
+              <tr><td>R-50 / C-100</td><td class="best">.671</td><td>.647</td><td>.589</td><td>.605</td><td>.595</td></tr>
+              <tr><td>ViT / GTSRB</td><td>.874</td><td class="best">.900</td><td>.823</td><td>.583</td><td>.540</td></tr>
+              <tr><td>CLIP / GTSRB</td><td class="best">.860</td><td>.744</td><td>.651</td><td>.716</td><td>.723</td></tr>
+              <tr><td>Average</td><td class="best">.839</td><td>.766</td><td>.641</td><td>.675</td><td>.609</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="table-note">Matched-accuracy Dis AUC when the quantizer is replaced by a regularizer of comparable severity.</p>
+      </div>
+    </div>
+    <div class="prose">
+      <h3 style="margin-top: 34px;">Tighter precision sharpens the asymmetry</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Model</th><th>W8A8</th><th>W6A6</th><th>W4A4</th></tr></thead>
+          <tbody>
+            <tr class="sub"><td colspan="4">CIFAR-100 (100 classes)</td></tr>
+            <tr><td>ResNet-56</td><td>0.582</td><td>0.596</td><td>0.636*</td></tr>
+            <tr><td>ViT-B/16</td><td>0.619</td><td>0.757</td><td>0.850*</td></tr>
+            <tr class="sub"><td colspan="4">ImageNet-1k (1,000 classes)</td></tr>
+            <tr><td>ResNet-50</td><td>0.575</td><td>0.629</td><td>0.829*</td></tr>
+            <tr><td>ViT-B/16</td><td>0.617</td><td>0.706</td><td>0.847*</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="table-note">T1 Dis AUC; lower precision yields higher Dis AUC in every row. *Accuracy-unmatched.</p>
+    </div>
+
+    <div class="note prose">
+      <h3>Scope</h3>
+      <ul>
+        <li><strong>A supervised gate.</strong> The gate is fitted with labels for each (full-precision, quantized) pair; it is not a zero-shot detector, and a head fitted on one dataset loses its gain on another.</li>
+        <li><strong>Upper estimates of the gains.</strong> The reported gains take the best flag rate on the evaluated cells; a deployment must fix it in advance.</li>
+        <li><strong>Class density.</strong> At 1,000 classes the quantized-model-only signal is diluted, capping T1 on ImageNet-1k at conservative precisions.</li>
+        <li><strong>Cost of T3.</strong> T3 keeps the full-precision model available, which suits compute- or energy-bound settings, not memory-bound LLM serving; T1 and T2 carry no such cost.</li>
+        <li><strong>Coverage.</strong> The densest evidence is the 50-cell CLIP grid; the other families rest on a handful of cells each.</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- ===================== CODE ===================== -->
+  <section id="code" class="prose">
+    <div class="sec-head">
+      <span class="label">Code</span>
+      <h2>Reproduction code</h2>
+    </div>
+    <div class="code-card">
+      <div class="main">
+        <div class="repo">CEA-LIST / Disentangling-the-Good-From-the-Bad-Quantization-Induced-Flips-Are-Not-Random</div>
+      </div>
+      <a class="btn btn-primary" href="https://github.com/CEA-LIST/Disentangling-the-Good-From-the-Bad-Quantization-Induced-Flips-Are-Not-Random" target="_blank" rel="noopener noreferrer">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m16 18 6-6-6-6M8 6l-6 6 6 6"/></svg>
+        Open repository
+      </a>
+    </div>
+  </section>
+
+  <!-- ===================== CITATION ===================== -->
+  <section id="citation" class="prose">
+    <div class="sec-head">
+      <span class="label">Citation</span>
+      <h2>BibTeX</h2>
+    </div>
+    <div class="bib">
+      <pre id="bibtex">@inproceedings{bouguerra2026disentangling,
+  title     = {Disentangling the Good From the Bad: Quantization-Induced Flips Are Not Random},
+  author    = {Bouguerra, Aymen and Arnez, Fabio and Gomez-Villa, Alexandra and Mraidha, Chokri},
+  booktitle = {Advances in Neural Information Processing Systems (NeurIPS)},
+  year      = {2026}
+}</pre>
+      <button class="copy-btn" id="copy-btn" type="button">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+        <span>Copy</span>
+      </button>
+    </div>
+
+    <h3 style="margin-top: 40px;">Related work</h3>
+    <a class="related" href="https://aymenbouguerra.github.io/Less-Precise-Can-Be-More-Reliable/" target="_blank" rel="noopener noreferrer">
+      <div class="t">Less Precise Can Be More Reliable: A Systematic Evaluation of Quantization's Impact on VLMs Beyond Accuracy</div>
+      <div class="a"><b>Aymen Bouguerra</b>, Daniel Alfonso Montoya Vasquez, Alexandra Gomez-Villa, Chokri Mraidha, Fabio Arnez</div>
+      <div class="m">ICML 2026 · the spectral description of quantization this work builds on</div>
+    </a>
+    <div class="bib">
+      <pre>@inproceedings{bouguerra26a,
+  title     = {Less Precise Can Be More Reliable: A Systematic Evaluation
+               of Quantization's Impact on {VLMs} Beyond Accuracy},
+  author    = {Bouguerra, Aymen and Montoya Vasquez, Daniel Alfonso and Gomez-Villa, Alexandra
+               and Mraidha, Chokri and Arnez, Fabio},
+  booktitle = {Proceedings of the 43rd International Conference on Machine Learning},
+  pages     = {9363--9391},
+  year      = {2026},
+  volume    = {306},
+  series    = {Proceedings of Machine Learning Research},
+  publisher = {PMLR},
+  url       = {https://proceedings.mlr.press/v306/bouguerra26a.html}
+}</pre>
+      <button class="copy-btn" type="button">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+        <span>Copy</span>
+      </button>
+    </div>
+
+    <a class="related" href="https://aymenbouguerra.github.io/Quantization-and-Corruption-Robustness-in-Deployed-Road-Scene-Perception/" target="_blank" rel="noopener noreferrer" style="margin-top: 24px;">
+      <div class="t">Quantization and Corruption Robustness in Deployed Road-Scene Perception</div>
+      <div class="a"><b>Aymen Bouguerra</b>, Ansgar Radermacher, Fabio Arnez, Chokri Mraidha</div>
+      <div class="m">IEEE ICVES 2026 · quantization and corruption robustness in a deployed road-scene detector</div>
+    </a>
+    <div class="bib">
+      <pre>@inproceedings{bouguerra2026perception,
+  title     = {Quantization and Corruption Robustness in Deployed Road-Scene Perception},
+  author    = {Bouguerra, Aymen and Radermacher, Ansgar and Arnez, Fabio and Mraidha, Chokri},
+  booktitle = {IEEE International Conference on Vehicular Electronics and Safety (ICVES)},
+  address   = {Cochabamba, Bolivia},
+  year      = {2026}
+}</pre>
+      <button class="copy-btn" type="button">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+        <span>Copy</span>
+      </button>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  <div class="wrap">
+    <p>The abstract and figures on this page are taken from the paper.</p>
+    <p>Université Paris-Saclay, CEA-List, F-91120 Palaiseau, France · Computer Vision Center, Spain · Universitat Autònoma de Barcelona.</p>
+    <p>More projects: <a href="https://aymenbouguerra.github.io/">aymenbouguerra.github.io</a></p>
+  </div>
+</footer>
+
+<script>
+  (function () {
+    var root = document.documentElement;
+
+    // Theme toggle: follows the system until the visitor picks one.
+    var themeBtn = document.getElementById("theme-btn");
+    function currentTheme() {
+      var t = root.getAttribute("data-theme");
+      if (t) return t;
+      return window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+    }
+    themeBtn.addEventListener("click", function () {
+      var next = currentTheme() === "dark" ? "light" : "dark";
+      root.setAttribute("data-theme", next);
+      try { localStorage.setItem("theme", next); } catch (e) {}
+    });
+
+    // Copy BibTeX (one button per block).
+    Array.prototype.forEach.call(document.querySelectorAll(".bib"), function (bib) {
+      var copyBtn = bib.querySelector(".copy-btn");
+      var label = copyBtn.querySelector("span");
+      copyBtn.addEventListener("click", function () {
+        var text = bib.querySelector("pre").textContent;
+        function done(ok) {
+          label.textContent = ok ? "Copied" : "Select and copy";
+          setTimeout(function () { label.textContent = "Copy"; }, 1800);
+        }
+        if (navigator.clipboard && window.isSecureContext) {
+          navigator.clipboard.writeText(text).then(function () { done(true); }, function () { done(false); });
+        } else {
+          var ta = document.createElement("textarea");
+          ta.value = text; ta.setAttribute("readonly", ""); ta.style.position = "fixed"; ta.style.opacity = "0";
+          document.body.appendChild(ta); ta.select();
+          var ok = false;
+          try { ok = document.execCommand("copy"); } catch (e) {}
+          document.body.removeChild(ta);
+          done(ok);
+        }
+      });
+    });
+
+    // Highlight the section in view.
+    var links = Array.prototype.slice.call(document.querySelectorAll(".nav a"));
+    if ("IntersectionObserver" in window) {
+      var byId = {};
+      links.forEach(function (a) { byId[a.getAttribute("href").slice(1)] = a; });
+      var obs = new IntersectionObserver(function (entries) {
+        entries.forEach(function (e) {
+          if (!e.isIntersecting) return;
+          links.forEach(function (a) { a.classList.remove("active"); });
+          var a = byId[e.target.id];
+          if (a) a.classList.add("active");
+        });
+      }, { rootMargin: "-45% 0px -50% 0px" });
+      Object.keys(byId).forEach(function (id) {
+        var el = document.getElementById(id);
+        if (el) obs.observe(el);
+      });
+    }
+  })();
+</script>
+</body>
+</html>
